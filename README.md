@@ -1,1 +1,1 @@
-Ajuro.IEX.Downloader
+Ajuro.IEX.Downloader [Docs](https://github.com/OTB-Expert/Ajuro.IEX.Downloader/blob/master/docs/index.md)
