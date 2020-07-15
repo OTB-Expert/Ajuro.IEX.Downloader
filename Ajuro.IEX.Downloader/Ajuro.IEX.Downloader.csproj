@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Authors>dev@otb.expert</Authors>
+    <Company>OTB Expert</Company>
+    <Description>Collect, process and store intraday data from IEX Cloud.</Description>
+    <Copyright>Copyright 2020</Copyright>
+    <PackageTags>Ajuro, IEX, Intraday, Downloader</PackageTags>
+    <RepositoryUrl>https://github.com/OTB-Expert/Ajuro.IEX.Downloader.git</RepositoryUrl>
+    <PackageIconUrl>http://otb.expert/img/desk.png</PackageIconUrl>
+    <PackageProjectUrl>http://otb.expert/projects/ajuro.iex.downloader</PackageProjectUrl>
+    <PackageLicenseUrl>http://otb.expert/licenses/ajuro.iex.downloader</PackageLicenseUrl>
+    <Version>0.0.1</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <NeutralLanguage>en</NeutralLanguage>
+    <PackageReleaseNotes>First internal prerelease.</PackageReleaseNotes>
+    <Configurations>Debug;Release;Local</Configurations>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+	<metadata  minClientVersion="3.3.0">
+		<id>Ajuro.IEX.Downloader</id>
+		<title>Ajuro.IEX.Downloader</title>
+		<version>0.0.1</version>
+		<authors>OTB Expert</authors>
+		<owners>OTB Expert</owners>
+		<licenseUrl>http://otb.expert/licenses/ajuro.iex.downloader</licenseUrl>
+		<projectUrl>http://otb.expert/projects/ajuro.iex.downloader</projectUrl>
+		<iconUrl>http://otb.expert/img/desk.png</iconUrl>
+		<requireLicenseAcceptance>false</requireLicenseAcceptance>
+		<description>Collect, process and store intraday data from IEX Cloud.</description>
+		<releaseNotes>First internal prerelease.</releaseNotes>
+		<copyright>Copyright 2020</copyright>
+		<tags>Ajuro, IEX, Intraday, Downloader</tags>
+	</metadata>
+	<files>
+		<file src="Ajuro.IEX.Downloader\bin\Release\Ajuro.IEX.Downloader.dll" target="lib\net461"/>
+	</files>
+</package>
