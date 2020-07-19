@@ -7,11 +7,13 @@ Ajuro\.IEX\.Downloader/bin/
 
 Ajuro\.IEX\.Downloader/obj/
 
-docs/
-
 Ajuro\.IEX\.Downloader\.UnitTest/obj/
 
 Ajuro\.IEX\.Downloader\.UnitTest/bin/
+
+Ajuro\.IEX\.Downloader\.Testing/obj/
+
+Ajuro\.IEX\.Downloader\.Testing/bin/
 
 Ajuro\.Secrets
 

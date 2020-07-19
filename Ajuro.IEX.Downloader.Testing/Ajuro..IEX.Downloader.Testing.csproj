@@ -1,0 +1,90 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TypeScriptToolsVersion>3.7</TypeScriptToolsVersion>
+    <ApplicationInsightsResourceId>/subscriptions/a8b34eaa-c91a-4d8c-9897-927cb94ae9e4/resourcegroups/otb/providers/microsoft.insights/components/Cezar-API</ApplicationInsightsResourceId>
+    <ApplicationInsightsAnnotationResourceId>/subscriptions/a8b34eaa-c91a-4d8c-9897-927cb94ae9e4/resourcegroups/otb/providers/microsoft.insights/components/Cezar-API</ApplicationInsightsAnnotationResourceId>
+    <UserSecretsId>15423edf-090d-4e6d-977c-9c615d40bc25</UserSecretsId>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG;Stock</DefineConstants>
+    <NoWarn>1701;1702;NU1608</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Snippet|AnyCPU'">
+    <DefineConstants>DEBUG;Snippet</DefineConstants>
+    <NoWarn>1701;1702;NU1608</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>Stock</DefineConstants>
+    <NoWarn>1701;1702;NU1608</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="Controllers\v3\Snippets\**" />
+    <Compile Remove="HeartBit\**" />
+    <Content Remove="Controllers\v3\Snippets\**" />
+    <Content Remove="HeartBit\**" />
+    <EmbeddedResource Remove="Controllers\v3\Snippets\**" />
+    <EmbeddedResource Remove="HeartBit\**" />
+    <None Remove="Controllers\v3\Snippets\**" />
+    <None Remove="HeartBit\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.6.0" />
+    <PackageReference Include="Moq" Version="4.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.1.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.1.1" />
+    <PackageReference Include="coverlet.collector" Version="1.2.0" />
+	
+	
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="5.0.1" />
+    <PackageReference Include="Hangfire.Core" Version="1.7.*" />
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.7.9" />
+    <PackageReference Include="Hangfire.SqlServer" Version="1.7.9" />
+    <PackageReference Include="log4net" Version="2.0.8" />
+    <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.4.1" />
+    <PackageReference Include="Microsoft.ApplicationInsights.SnapshotCollector" Version="1.3.6" />
+    <PackageReference Include="Microsoft.ApplicationInsights.TraceListener" Version="2.9.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.HttpsPolicy" Version="2.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Azure.Management.ContainerRegistry" Version="4.0.0" />
+    <PackageReference Include="Microsoft.Azure.Management.ContainerRegistry.Fluent" Version="1.31.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="3.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="3.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="3.1.2" />
+    <PackageReference Include="NETCore.MailKit" Version="2.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="5.6.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="2.0.0" />
+    <!--https://github.com/aspnet/EntityFrameworkCore/issues/8996-->
+    <DotNetCliToolReference Include="Microsoft.EntityFrameworkCore.Tools.DotNet" Version="2.0.0" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)|$(Platform)'=='Snippet|AnyCPU'">
+    <ProjectReference Include="..\..\Ajuro.Net.Snippet\Ajuro.Net.Snippet\Ajuro.Net.Snippet.csproj" Condition="'$(Configuration)|$(Platform)'=='Snippet|AnyCPU'" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types.Testing\Ajuro.Net.Types.Testing.csproj" />
+    <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types\Ajuro.Net.Types.csproj" />
+    <ProjectReference Include="..\Ajuro.IEX.Downloader\Ajuro.IEX.Downloader.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="TestData\DailySymbolHistory\" />
+    <Folder Include="TestData\LargeResults\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Ajuro.Net.Types.Testing.csproj" />
+  </ItemGroup>
+
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1Development_1json__JSONSchema="" /></VisualStudio></ProjectExtensions>
+  
+</Project>  
