@@ -1,7 +1,6 @@
 ﻿using Ajuro.IEX.Downloader.Models;
 using Ajuro.Net.Stock.Repositories;
 using Ajuro.Net.Types.Stock.Models;
-using All.Ajuro.Net.Types.Stock.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -14,15 +13,15 @@ using System.Threading.Tasks;
 
 namespace Ajuro.IEX.Downloader.Services
 {
-    public enum Step { 
+    public enum Step {
         DownloadIntraday, // will download from IEX Cloud resulting in one record per SymbolId and per Day like: CODE-yyyyMMdd
         AggredateDays, // will get all the records of a symbol, order them and merge them into one record
-        AggregateSymbols 
+        AggregateSymbols
     }
     public interface IDownloaderService
     {
-        
 
+        Task<List<DownloadReport>> Download(CommandSource source, DownloadOptions options);
 
         void SetOptions(DownloaderOptions options);
         string[] GetSP500();
@@ -54,6 +53,45 @@ namespace Ajuro.IEX.Downloader.Services
         Task<IEnumerable<TickArray>> GetHistorical(int symbolId, int days, bool fromFiles = false);
         Task<List<Tick>> GetAllHistoricalFromDb(bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
         Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+    }
+
+    public class DownloadOptions
+    {
+        public Download_Options Step_01_Download_Options { get; set; }
+        public Join_Options Step_02_Join_Options { get; set; }
+        public Aggregate_Options Step_03_Aggregate_Options { get; set; }
+        public SelectorOptions SelectorOptions { get; set; }
+
+        public DownloadOptions()
+        {
+            Step_01_Download_Options = new Download_Options();
+            Step_02_Join_Options = new Join_Options();
+            Step_03_Aggregate_Options = new Aggregate_Options();
+            SelectorOptions = new SelectorOptions();
+        }
+    }
+
+    public class SelectorOptions
+    {
+        public int FromDateOffset { get; set; }
+        public int ToDateOffset { get; set; }
+        public long FromDateSeconds { get; set; }
+        public long ToDateSeconds { get; set; }
+    }
+
+    public class Download_Options
+    {
+        public bool Skip_This_Step { get; set; }
+    }
+
+    public class Aggregate_Options
+    {
+        public bool Skip_This_Step { get; set; }
+    }
+
+    public class Join_Options
+    {
+        public bool Skip_This_Step { get; set; }
     }
 
     public class DownloaderOptions
@@ -161,7 +199,7 @@ namespace Ajuro.IEX.Downloader.Services
                 var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
                 return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(fileContent);
             }
-            var result = _resultRepository.GetByKey(resultKey).FirstOrDefault();
+            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
             if (result != null && !overWrite)
             {
                 return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(result.TagString);
@@ -472,7 +510,7 @@ namespace Ajuro.IEX.Downloader.Services
                     EndTime = logEntryBreakdown.EndTime,
                     Tag = logEntryBreakdown,
                     TagString = JsonConvert.SerializeObject(logEntryBreakdown),
-                    Source = CommandSource.Scheduler,
+                    Source = CommandSource.Startup,
                     Method = logEntryBreakdown.Indicator
                 });
                 return new StockReport
@@ -527,7 +565,7 @@ namespace Ajuro.IEX.Downloader.Services
                     EndTime = logEntryBreakdown.EndTime,
                     Tag = logEntryBreakdown,
                     TagString = JsonConvert.SerializeObject(logEntryBreakdown),
-                    Source = CommandSource.Scheduler,
+                    Source = CommandSource.Startup,
                     Method = logEntryBreakdown.Indicator
                 });
 
@@ -549,9 +587,21 @@ namespace Ajuro.IEX.Downloader.Services
                 EndTime = logEntryBreakdown.EndTime,
                 Tag = logEntryBreakdown,
                 TagString = JsonConvert.SerializeObject(logEntryBreakdown),
-                Source = CommandSource.Scheduler,
+                Source = CommandSource.Startup,
                 Method = logEntryBreakdown.Indicator
             });
+            return null;
+        }
+
+
+        public async Task<List<DownloadReport>> Download(CommandSource source, DownloadOptions options)
+        {/*
+            options.SelectorOptions.FromDateSeconds > 0 ? options.SelectorOptions.FromDateSeconds - options.SelectorOptions.FromDateOffset * 86400
+            var dates = new List<DateTime>() { };
+            for (var i = days - 1; i >= 0; i--)
+            {
+                dates.Add(DateTime.UtcNow.Date.AddDays(-i));
+            }*/
             return null;
         }
 
@@ -565,7 +615,7 @@ namespace Ajuro.IEX.Downloader.Services
                 var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
                 return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
             }
-            var result = _resultRepository.GetByKey(resultKey).FirstOrDefault();
+            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
             if (result != null && !overWrite)
             {
                 return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(result.TagString);

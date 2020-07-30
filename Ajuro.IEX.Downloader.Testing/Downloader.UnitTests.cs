@@ -23,6 +23,7 @@ namespace Ajuro.Core.Testing
 
             // applicationDbContext.Database.EnsureDeleted();
             applicationDbContext.Database.EnsureCreated();*/
+            base.Initialize();
             Initialize();
         }
 
