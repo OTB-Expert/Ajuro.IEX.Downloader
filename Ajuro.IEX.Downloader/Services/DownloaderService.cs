@@ -21,38 +21,38 @@ namespace Ajuro.IEX.Downloader.Services
     public interface IDownloaderService
     {
 
-        Task<List<DownloadReport>> Download(CommandSource source, DownloadOptions options);
+        Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options);
 
         void SetOptions(DownloaderOptions options);
         string[] GetSP500();
-        Task<List<DownloadIntradayReport>> BuildDownloadSummary(bool overWrite);
-        Task<bool> SaveResult(Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder);
+        Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, bool overWrite);
+        Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder);
 
 
-        Task<IEnumerable<Sample>> CreateFragments(ResultSelector resultSelector, int take, bool saveFile = false);
+        Task<IEnumerable<Sample>> CreateFragmentsFromFiles(BaseSelector selector, ResultSelector resultSelector);
+        Task<IEnumerable<Sample>> CreateFragmentsFromDb(BaseSelector selector, ResultSelector resultSelector);
 
-        Task<List<StockReport>> FetchLast(Symbol symbol, int i);
+        Task<List<StockReport>> FetchLast(BaseSelector selector, Symbol symbol, int i);
 
-        Task<StockReport> FetchDate(Symbol symbol, DateTime date, bool saveOnly = false, bool fromFile = false);
+        Task<StockReport> FetchDate(BaseSelector selector, Symbol symbol, DateTime date, bool saveOnly = false, bool fromFile = false);
 
-        Task<string> FetchString(Symbol symbol, DateTime date, FetchOptions fetchOptions);
+        Task<string> FetchString(BaseSelector selector, Symbol symbol, DateTime date, FetchOptions fetchOptions);
 
-        Task<object[][]> ProcessString(Symbol symbol, DateTime date, FetchOptions fetchOptions);
+        Task<object[][]> ProcessString(BaseSelector selector, Symbol symbol, DateTime date, FetchOptions fetchOptions);
 
-        Task<List<StockResult>> GetLasts(int ticksCount);
+        Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount);
 
-        Task<int> FetchToday();
+        Task<int> FetchToday(BaseSelector selector);
 
-        Task<List<StockReport>> QuickPull(bool isControl = false);
+        Task<List<StockReport>> QuickPull(BaseSelector selector, bool isControl = false);
 
-        Task<List<StockReport>> Pool(bool isControl = false);
+        Task<List<StockReport>> Pool(BaseSelector selector, bool isControl = false);
 
-        Task<Tick> UpsertTicks(Symbol symbol, DateTime date, object[][] ticksArray);
-        Task<StockReport> Pool(Symbol symbol, DateTime date);
+        Task<Tick> UpsertTicks(BaseSelector selector, Symbol symbol, DateTime date, object[][] ticksArray);
+        Task<StockReport> Pool(BaseSelector selector, Symbol symbol, DateTime date);
 
-        Task<IEnumerable<TickArray>> GetHistorical(int symbolId, int days, bool fromFiles = false);
-        Task<List<Tick>> GetAllHistoricalFromDb(bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
-        Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+        Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+        Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
     }
 
     public class DownloadOptions
@@ -188,7 +188,44 @@ namespace Ajuro.IEX.Downloader.Services
             _logRepository = logRepository;
         }
 
-        public async Task<List<Tick>> GetAllHistoricalFromDb(bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
+        public async Task<string> CreateAndSaveSegments(BaseSelector selector, ResultSelector resultSelector)
+        {
+            var TagString = resultSelector.TagString;
+            if (string.IsNullOrEmpty(TagString))
+            {
+                StringBuilder sb = new StringBuilder();
+                var samples = await CreateFragmentsFromDb(selector, resultSelector);
+                foreach (var sample in samples)
+                {
+                    sb.AppendLine(sample.ToString());
+                }
+                TagString = sb.ToString();
+            }
+
+            resultSelector.TagString = null;
+            var key = $"Fragments_id_{ resultSelector.SymbolId }_len_{ resultSelector.Length }_len_{ resultSelector.Lost }_len_{ resultSelector.Margin }_len_{ resultSelector.Save }";
+            var existentResult = _resultRepository.GetAllByKey(key).FirstOrDefault();
+            if (existentResult != null)
+            {
+                if (resultSelector.Replace)
+                {
+                    existentResult.TagString = TagString;
+                    var s = _resultRepository.UpdateAsync(existentResult).Result;
+                }
+            }
+            else
+            {
+                await _resultRepository.AddAsync(new Result(selector)
+                {
+                    TagString = TagString,
+                    Key = key,
+                    User = null
+                });
+            }
+            return resultSelector.TagString;
+        }
+
+        public async Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
         {
             var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -217,26 +254,26 @@ namespace Ajuro.IEX.Downloader.Services
                 var aggregatedTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == 0 && p.SymbolId == symbols[symi].SymbolId);
                 if (aggregatedTick == null)
                 {
-                    var tickArray = await ProcessString(symbols[symi], DateTime.MinValue, new FetchOptions()
+                    var tickArray = await ProcessString(selector, symbols[symi], DateTime.MinValue, new FetchOptions()
                     {
                         FromFile = true,
                         SaveOnly = true,
                         Overwrite = overwite
                     });
 
-                    aggregatedTick = await UpsertTicks(symbols[symi], DateTime.MinValue, tickArray);
+                    aggregatedTick = await UpsertTicks(selector, symbols[symi], DateTime.MinValue, tickArray);
                 }
                 aggregatedTicks.Add(aggregatedTick);
 
                 if (saveToFile)
                 {
-                    var success = await SaveResult(result, startTime, resultKey, aggregatedTicks, false, downloaderOptions.LargeResultsFolder);
+                    var success = await SaveResult(selector, result, startTime, resultKey, aggregatedTicks, false, downloaderOptions.LargeResultsFolder);
                 }
             }
             return aggregatedTicks;
         }
 
-        public async Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
+        public async Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
         {
             var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             overWrite = false;
@@ -263,7 +300,7 @@ namespace Ajuro.IEX.Downloader.Services
 
                 }
 
-                var tickArray = await ProcessString(symbols[symi], DateTime.MinValue, new FetchOptions()
+                var tickArray = await ProcessString(selector, symbols[symi], DateTime.MinValue, new FetchOptions()
                 {
                     FromFile = true,
                     SaveOnly = false,
@@ -280,7 +317,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             if (saveToFile)
             {
-                var success = await SaveResult(result, startTime, resultKey, priceDictionary, false, downloaderOptions.LargeResultsFolder);
+                var success = await SaveResult(selector, result, startTime, resultKey, priceDictionary, false, downloaderOptions.LargeResultsFolder);
             }
             return (Dictionary<int, object[][]>)result.Tag;
         }
@@ -295,7 +332,7 @@ namespace Ajuro.IEX.Downloader.Services
         /// <summary>
         /// Merge intraday records into one foreach symbol
         /// </summary>
-        public async Task<object[][]> ProcessString(Symbol symbol, DateTime date, FetchOptions fetchOptions)
+        public async Task<object[][]> ProcessString(BaseSelector selector, Symbol symbol, DateTime date, FetchOptions fetchOptions)
         {
             var dataString = string.Empty;
             var fileName = string.Empty;
@@ -344,7 +381,7 @@ namespace Ajuro.IEX.Downloader.Services
                 dataString = "[" + string.Join(",", strings) + "]";
             }
 #else
-            dataString = await FetchString(symbol, date, fetchOptions);
+            dataString = await FetchString(selector, symbol, date, fetchOptions);
 #endif
             try
             {
@@ -429,17 +466,17 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
-        public async Task<StockReport> FetchDate(Symbol symbol, DateTime date, bool save = false, bool fromFile = false)
+        public async Task<StockReport> FetchDate(BaseSelector selector, Symbol symbol, DateTime date, bool save = false, bool fromFile = false)
         {
-            var stringData = await FetchString(symbol, date, new FetchOptions()
+            var stringData = await FetchString(selector, symbol, date, new FetchOptions()
             {
                 FromFile = true
             });
-            var tickArray = await ProcessString(symbol, date, new FetchOptions()
+            var tickArray = await ProcessString(selector, symbol, date, new FetchOptions()
             {
                 FromFile = true
             });
-            var data = await PoolSymbolTicksOnDate(symbol, date, true, save, fromFile);
+            var data = await PoolSymbolTicksOnDate(selector, symbol, date, true, save, fromFile);
             if (data != null && data.TickIdId > 0)
             {
                 // await _tickRepository.GetByIdAsync(data.TickIdId);
@@ -447,7 +484,7 @@ namespace Ajuro.IEX.Downloader.Services
             return data;
         }
 
-        private async Task<StockReport> PoolSymbolTicksOnDate(Symbol symbol, DateTime date, bool IsImportant = false, bool saveOnly = false, bool fromFile = false)
+        private async Task<StockReport> PoolSymbolTicksOnDate(BaseSelector selector, Symbol symbol, DateTime date, bool IsImportant = false, bool saveOnly = false, bool fromFile = false)
         {
 
             var logEntryBreakdown = new LogEntryBreakdown("PoolSymbolTicksOnDate");
@@ -458,24 +495,24 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 if (date > DateTime.MinValue)
                 {
-                    var stringData = await FetchString(symbol, date, new FetchOptions()
+                    var stringData = await FetchString(selector, symbol, date, new FetchOptions()
                     {
                         FromFile = true,
                         SaveReportsToDb = true
                     });
                 }
-                var ticksArray = await ProcessString(symbol, date, new FetchOptions()
+                var ticksArray = await ProcessString(selector, symbol, date, new FetchOptions()
                 {
                     FromFile = true
                 });
                 var seconds = (new DateTimeOffset(date.Date)).ToUnixTimeSeconds();
 
-                var existentTick = await UpsertTicks(symbol, date, ticksArray);
+                var existentTick = await UpsertTicks(selector, symbol, date, ticksArray);
 
                 var symbolLastValue = (long)(symbol.Value * 100);
-                symbol.Value = (float)ticksArray.LastOrDefault()[1];
-                symbol.DayStart = (float)ticksArray.FirstOrDefault()[1];
-                symbol.DayEnd = (float)ticksArray.LastOrDefault()[1];
+                symbol.Value = (double)ticksArray.LastOrDefault()[1];
+                symbol.DayStart = (double)ticksArray.FirstOrDefault()[1];
+                symbol.DayEnd = (double)ticksArray.LastOrDefault()[1];
                 symbol.DayPercentage = symbol.DayStart == 0 || symbol.DayEnd == 0 ? 0 : symbol.DayStart < symbol.DayEnd ? (100 - (symbol.DayStart * 100 / symbol.DayEnd)) : (100 - (symbol.DayEnd * 100 / symbol.DayStart)) * -1;
                 symbol.Samples = ticksArray.Length;
                 symbol.Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -594,7 +631,7 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
 
-        public async Task<List<DownloadReport>> Download(CommandSource source, DownloadOptions options)
+        public async Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options)
         {/*
             options.SelectorOptions.FromDateSeconds > 0 ? options.SelectorOptions.FromDateSeconds - options.SelectorOptions.FromDateOffset * 86400
             var dates = new List<DateTime>() { };
@@ -606,7 +643,7 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
 
-        public async Task<List<DownloadIntradayReport>> BuildDownloadSummary(bool overWrite)
+        public async Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, bool overWrite)
         {
             var resultKey = "HistoricalFilesSummary";
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
@@ -702,7 +739,7 @@ namespace Ajuro.IEX.Downloader.Services
                 report.Count = codePaths.Count();
                 reports.Add(report); ;
             }
-            var success = await SaveResult(result, startTime, resultKey, reports, overWrite, downloaderOptions.SymbolHistoryFolder);
+            var success = await SaveResult(selector, result, startTime, resultKey, reports, overWrite, downloaderOptions.SymbolHistoryFolder);
             return reports;
         }
         public string[] GetSP500()
@@ -713,12 +750,12 @@ namespace Ajuro.IEX.Downloader.Services
 
         public string[] SP500 = new string[] { "NVR", "BKNG", "ISRG", "ALGN", "PAYC", "GOOG", "GOOGL", "FLT", "AMZN", "BA", "DXCM", "MSCI", "AZO", "MTD", "CTAS", "ZBRA", "MLM", "AVB", "ABMD", "UNH", "NOW", "LRCX", "ESS", "SIVB", "CMG", "SPG", "RCL", "MA", "BLK", "ADP", "SHW", "TFX", "URI", "SNA", "ALLE", "AAPL", "TDG", "RE", "SYK", "ORLY", "LIN", "BRK.B", "HCA", "CDW", "ADSK", "UNP", "EQIX", "AVGO", "IPGP", "ZBH", "CME", "ECL", "SWKS", "ARE", "TIF", "PXD", "KSU", "ADBE", "CI", "LMT", "BIIB", "ANSS", "FIS", "MSI", "WAT", "ANET", "GWW", "TT", "NOC", "TRV", "UHS", "WYNN", "KLAC", "CAT", "CB", "NVDA", "TMO", "SPGI", "V", "HD", "CXO", "DVA", "GPN", "PAYX", "ADS", "ANTM", "PSA", "STZ", "MAA", "PVH", "DE", "HON", "LW", "APH", "MTB", "ACN", "LHX", "PNC", "NFLX", "VAR", "OXY", "CMI", "INTU", "FRT", "AMT", "GD", "BXP", "MDT", "SRE", "ROK", "MMM", "AMGN", "JPM", "EQR", "COO", "RL", "OKE", "APD", "VLO", "AVY", "RTX", "HES", "CVX", "FANG", "AIZ", "FB", "DHR", "IT", "ALB", "DLR", "MSFT", "PSX", "VFC", "WM", "EOG", "CINF", "ITW", "SWK", "ULTA", "DOV", "EL", "HII", "KEYS", "XOM", "EMR", "MCD", "AAP", "COP", "FISV", "HAS", "LNC", "PRU", "DTE", "ODFL", "MCO", "ALL", "CBRE", "EMN", "ROP", "MPC", "ROST", "LYV", "VMC", "UPS", "ETN", "FMC", "SBUX", "EW", "IEX", "UAL", "WAB", "GL", "STE", "SLG", "GRMN", "C", "AXP", "EXPE", "IBM", "OTIS", "FTV", "MCHP", "JBHT", "MAR", "GS", "APA", "PGR", "RSG", "CCL", "FDX", "SYY", "UDR", "OMC", "DHI", "WELL", "TXN", "NCLH", "PPG", "KMX", "NTAP", "AME", "MMC", "WLTW", "NSC", "KSS", "NTRS", "BR", "LEN", "CMA", "BBY", "L", "IR", "HSIC", "QCOM", "ETR", "MU", "NEE", "WDC", "AMP", "VNO", "WRB", "TFC", "CRM", "TJX", "PFG", "HIG", "XYL", "DFS", "PLD", "HFC", "BWA", "USB", "LOW", "PG", "QRVO", "PCAR", "FFIV", "AJG", "CTSH", "TEL", "ADI", "AIV", "AON", "APTV", "FRC", "TXT", "INFO", "XRAY", "IFF", "MCK", "O", "VTR", "CPRT", "RJF", "AMAT", "GPC", "RHI", "BF.B", "ICE", "HSY", "FLS", "NDAQ", "WHR", "GLW", "PKG", "TROW", "EXR", "DVN", "AAL", "COF", "PEP", "BK", "CVS", "EIX", "JKHY", "DAL", "PHM", "DISCA", "STT", "VRSK", "SLB", "CL", "JCI", "CERN", "HWM", "IDXX", "ABT", "AEE", "PEAK", "TGT", "FBHS", "KMB", "PNW", "PEG", "ALXN", "YUM", "DISCK", "J", "GM", "WFC", "AOS", "NKE", "BSX", "MET", "PYPL", "ADM", "EXC", "LEG", "PKI", "ZION", "INTC", "PWR", "WRK", "HAL", "CE", "BAC", "TTWO", "MNST", "COST", "JWN", "SEE", "NRG", "NOV", "DOW", "MDLZ", "AFL", "IP", "SYF", "MO", "KO", "DD", "AIG", "TWTR", "WBA", "EA", "SCHW", "DIS", "KHC", "ORCL", "WY", "NBL", "AEP", "BEN", "UNM", "MRO", "DISH", "DUK", "VRSN", "WU", "CSX", "KEY", "ES", "REG", "FTI", "HBI", "CF", "CSCO", "T", "FAST", "TMUS", "HST", "ETFC", "CCI", "HPQ", "NWL", "LYB", "FE", "K", "KIM", "FTNT", "CARR", "TPR", "AWK", "HLT", "IVZ", "TSN", "MS", "NUE", "MAS", "LB", "ABBV", "CMCSA", "PBCT", "CFG", "CAH", "FITB", "XRX", "F", "PNR", "CHRW", "IPG", "CNC", "PM", "MRK", "MXIM", "VIAC", "UAA", "DRE", "FCX", "CMS", "EVRG", "IRM", "MHK", "HPE", "LVS", "BKR", "JNJ", "BAX", "LNT", "UA", "XLNX", "SNPS", "VZ", "HBAN", "ED", "SO", "KMI", "ZTS", "CTVA", "AMD", "AES", "NI", "BMY", "COG", "EFX", "HOG", "WMB", "RF", "DXC", "ALK", "HRB", "PRGO", "AMCR", "STX", "WST", "FOXA", "ATO", "EXPD", "FOX", "NLSN", "WEC", "MOS", "COTY", "GIS", "XEL", "CTL", "JNPR", "CNP", "NWS", "GPS", "NWSA", "GE", "CDNS", "CAG", "HOLX", "TAP", "LDOS", "MKC", "RMD", "HRL", "PPL", "MGM", "PFE", "MYL", "NLOK", "LUV", "ROL", "LKQ", "DG", "TSCO", "INCY", "DLTR", "ATVI", "DRI", "ABC", "CHD", "FLIR", "EBAY", "WMT", "CPB", "KR", "D", "A", "CTXS", "GILD", "LH", "NEM", "PH", "BLL", "LLY", "BDX", "REGN", "IQV", "SJM", "HUM", "DGX", "AKAM", "CBOE", "SBAC", "ILMN", "MKTX", "DPZ", "CLX", "VRTX", "CHTR" };
 
-        public async Task<bool> SaveResult(Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder)
+        public async Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder)
         {
 
             if (existentResult == null)
             {
-                existentResult = new Result()
+                existentResult = new Result(selector)
                 {
                     Key = key,
                     TagString = JsonConvert.SerializeObject(content),
@@ -761,7 +798,7 @@ namespace Ajuro.IEX.Downloader.Services
         /// <param name="symbol"></param>
         /// <param name="days"></param>
         /// <returns></returns>
-        public async Task<List<StockReport>> FetchLast(Symbol symbol, int days = 0)
+        public async Task<List<StockReport>> FetchLast(BaseSelector selector, Symbol symbol, int days = 0)
         {
             var dates = new List<DateTime>() { };
             for (var i = days; i >= 0; i--)
@@ -772,19 +809,19 @@ namespace Ajuro.IEX.Downloader.Services
             List<StockReport> reports = new List<StockReport>();
             foreach (var date in dates)
             {
-                var report = await PoolSymbolTicksOnDate(symbol, date, false);
+                var report = await PoolSymbolTicksOnDate(selector, symbol, date, false);
                 reports.Add(report);
             }
             return reports;
         }
 
-        public async Task<StockReport> PoolSymbolOnDate(Symbol symbol, DateTime date)
+        public async Task<StockReport> PoolSymbolOnDate(BaseSelector selector, Symbol symbol, DateTime date)
         {
-            var data = await PoolSymbolTicksOnDate(symbol, date, false);
+            var data = await PoolSymbolTicksOnDate(selector, symbol, date, false);
             return data;
         }
 
-        public async Task<List<StockReport>> Pool(bool isControl = false)
+        public async Task<List<StockReport>> Pool(BaseSelector selector, bool isControl = false)
         {
             if (!isControl)
             {
@@ -803,7 +840,7 @@ namespace Ajuro.IEX.Downloader.Services
             foreach (var symbol in symbols)
             {
                 // Fetch will also alter
-                var reports = await FetchLast(symbol);
+                var reports = await FetchLast(selector, symbol);
                 allReports.AddRange(reports);
                 System.Threading.Thread.Sleep(500);
             }
@@ -825,7 +862,7 @@ namespace Ajuro.IEX.Downloader.Services
             return allReports.ToList();
         }
 
-        public async Task<List<StockReport>> QuickPull(bool isControl = false)
+        public async Task<List<StockReport>> QuickPull(BaseSelector selector, bool isControl = false)
         {
 #if DEBUG
             // return null;
@@ -836,7 +873,7 @@ namespace Ajuro.IEX.Downloader.Services
             foreach (var symbol in symbols)
             {
                 // Fetch will also alter
-                var reports = await FetchLast(symbol);
+                var reports = await FetchLast(selector, symbol);
                 allReports.AddRange(reports);
                 System.Threading.Thread.Sleep(500);
             }
@@ -857,37 +894,37 @@ namespace Ajuro.IEX.Downloader.Services
             return allReports.ToList();
         }
 
-        public async Task<StockReport> Pool(Symbol symbol, DateTime date)
+        public async Task<StockReport> Pool(BaseSelector selector, Symbol symbol, DateTime date)
         {
-            return await PoolSymbolOnDate(symbol, date);
+            return await PoolSymbolOnDate(selector, symbol, date);
         }
 
-        public async Task<List<StockResult>> GetLasts(int ticksCount)
+        public async Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount)
         {
             var symbols = _symbolRepository.GetAllActive();
             foreach (var symbol in symbols)
             {
-                await FetchLast(symbol, 0);
+                await FetchLast(selector, symbol, 0);
             }
             var dates = new List<DateTime>() { };
             for (var i = ticksCount / 54 - 1; i >= 0; i--)
             {
                 dates.Add(DateTime.UtcNow.Date.AddDays(-i));
             }
-            return await GetBulk(dates);
+            return await GetBulk(selector, dates);
         }
 
-        public async Task<List<StockResult>> GetLastDays(int days)
+        public async Task<List<StockResult>> GetLastDays(BaseSelector selector, int days)
         {
             var dates = new List<DateTime>() { };
             for (var i = days - 1; i >= 0; i--)
             {
                 dates.Add(DateTime.UtcNow.Date.AddDays(-i));
             }
-            return await GetBulk(dates);
+            return await GetBulk(selector, dates);
         }
 
-        async Task<List<StockResult>> GetBulk(List<DateTime> dates)
+        async Task<List<StockResult>> GetBulk(BaseSelector selector, List<DateTime> dates)
         {   
             var response = new List<StockResult>();
             var symbols = new List<string>() { "MSFT", "UBER", "BA", "LLOY", "TSLA", "DOM", "KO", "AMD", "NVDA", "EXPN", "LSE", "TSCO", "ULVR", "ABBV", "EL", "PYPL", "GSK", "MSTF", "CCL", "ISF", "IUSA" };
@@ -919,7 +956,7 @@ namespace Ajuro.IEX.Downloader.Services
             return response;
         }
 
-        public async Task<string> FetchString(Symbol symbol, DateTime date, FetchOptions fetchOptions)
+        public async Task<string> FetchString(BaseSelector selector, Symbol symbol, DateTime date, FetchOptions fetchOptions)
         {
 
             if (string.IsNullOrEmpty(symbol.Code))
@@ -1040,43 +1077,138 @@ namespace Ajuro.IEX.Downloader.Services
             return data;
         }
 
-        public async Task<IEnumerable<TickArray>> GetHistorical(int symbolId, int days, bool fromFiles = false)
-        {
-            var values = new List<TickArray>();
-            if (fromFiles)
-            {
-                var symbol = await _symbolRepository.GetByIdAsync(symbolId);
-                var FilePaths = System.IO.Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_" + symbol.Code + "_*.json");
-                FilePaths = FilePaths.OrderBy(p => p).ToArray();
-
-                foreach (var filePath in FilePaths)
-                {
-                    var content = System.IO.File.ReadAllText(filePath);
-                    var items = (List<IexItem>)JsonConvert.DeserializeObject<List<IexItem>>(content);
-                    items.Select(p => p.average);
-                }
-            }
-            else
-            {
-                var seconds = new DateTimeOffset(DateTime.UtcNow.AddDays(-days).Date).ToUnixTimeMilliseconds();
-                return _tickRepository.AllBySymbol(symbolId);
-            }
-            return values;
-        }
-
-        public async Task<int> FetchToday()
+        public async Task<int> FetchToday(BaseSelector selector)
         {
             var symbols = _symbolRepository.GetAllActive();
             foreach (var symbol in symbols)
             {
-                await FetchLast(symbol, 0);
+                await FetchLast(selector, symbol, 0);
             }
             return 0;
         }
 
 
         // Skip this for now.
-        public async Task<IEnumerable<Sample>> CreateFragments(ResultSelector resultSelector, int take, bool saveFile = false)
+        public async Task<IEnumerable<Sample>> CreateFragmentsFromFiles(BaseSelector selector, ResultSelector resultSelector)
+        {
+            bool running = true;
+            List<Sample> samples = new List<Sample>();
+            string[] FilePaths = null;
+
+            var symbol = await _symbolRepository.GetByIdAsync(resultSelector.SymbolId);
+            FilePaths = Directory.GetFiles(downloaderOptions.SymbolHistoryFolder, resultSelector.SymbolId > 0 ? symbol.Code + ".json" : "*.json");
+            FilePaths = FilePaths.OrderBy(p => p).ToArray();
+
+            var filesCount = FilePaths.Count();
+            int fileIndex = 0;
+            for (int f = 0; f < FilePaths.Length; f++)
+            {
+                if (!running)
+                {
+                    f--;
+                    Thread.Sleep(1000);
+                    continue;
+                }
+                var filePath = FilePaths[f];
+                fileIndex++;
+                string content = File.ReadAllText(filePath);
+                var data = (List<TickArray>)JsonConvert.DeserializeObject<List<TickArray>>(content);
+                if (data.Count < resultSelector.Margin + resultSelector.Length)
+                {
+                    continue;
+                }
+                samples.AddRange(CreateFragments(selector, resultSelector, symbol, data));
+            }
+            return samples;
+        }
+
+
+        // Skip this for now.
+        public async Task<IEnumerable<Sample>> CreateFragmentsFromDb(BaseSelector selector, ResultSelector resultSelector)
+        {
+            resultSelector.SymbolId = 5;
+            resultSelector.Take = 100;
+            if (resultSelector.Margin == 0) resultSelector.Margin = 3;
+
+
+            bool running = true;
+            List<Sample> samples = new List<Sample>();
+            var symbol = await _symbolRepository.GetByIdAsync(resultSelector.SymbolId);
+            var symbolRecords = _tickRepository.All().Where(p=>(symbol == null || p.SymbolId == symbol.SymbolId) && p.Samples > 1000);
+            foreach(var s in symbolRecords)
+            {
+                var data = (List<TickArray>)JsonConvert.DeserializeObject<List<TickArray>>(s.Serialized);
+                if (data.Count < resultSelector.Margin + resultSelector.Length)
+                {
+                    continue;
+                }
+                samples.AddRange(CreateFragments(selector, resultSelector, symbol, data));
+            }
+            return samples;
+        }
+
+        private IEnumerable<Sample> CreateFragments(BaseSelector selector, ResultSelector resultSelector, Symbol symbol, List<TickArray> data)
+        {
+            List<Sample> samples = new List<Sample>();
+            int anchor = 0;
+            int low = 0;
+            double trigger = 0;
+            Sample lastSample = null;
+            for (int i = 0; i < data.Count; i++)
+            {
+                if(samples.Count() >= resultSelector.Take)
+                {
+                    break;
+                }
+
+                if (lastSample != null)
+                {
+                    if (data[i].V < lastSample.Min.V)
+                    {
+                        lastSample.Min = data[i];
+                    }
+                }
+                if (i == 0 || data[i].V > data[anchor].V)
+                {
+                    // Price going up, update anchor
+                    anchor = i;
+                    trigger = data[i].V - data[i].V / 100.0 * resultSelector.Lost;
+                    lastSample = null;
+                    continue;
+                }
+                if (data[i].V <= trigger)
+                {
+                    // This is it!
+                    var values = data.Skip(i - resultSelector.Margin - resultSelector.Length + 1).Take(resultSelector.Length + resultSelector.Margin).ToList();
+                    lastSample = new Sample
+                    {
+                        Code = symbol.Code,
+                        Date = _userRepository.ReadableTimespan(values[0].T),
+                        Pick = data[anchor],
+                        Entry = values[0],
+                        Margin = values[resultSelector.Length],
+                        Lost = values[values.Count - 1],
+                        Min = data[i],
+                        Values = values.Select(p => p.V)
+                    };
+                    anchor = i;
+                    trigger = data[i].V - data[i].V / 100.0 * resultSelector.Lost;
+                    low = i;
+                    if (values[0].V == values[1].V && values[1].V == values[2].V)
+                    {
+                        continue;
+                    }
+                    samples.Add(lastSample);
+                    continue;
+                }
+
+            }
+            return samples;
+        }
+
+
+        // Skip this for now.
+        public async Task<IEnumerable<Sample>> CreateFragmentsFromIntraday(BaseSelector selector, ResultSelector resultSelector)
         {
             int FrameSize = 15;
             decimal PercentChange = 2;
@@ -1086,7 +1218,7 @@ namespace Ajuro.IEX.Downloader.Services
             string[] FilePaths = null;
 
             FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_*_*.json");
-            FilePaths = FilePaths.OrderBy(p=>p).ToArray();
+            FilePaths = FilePaths.OrderBy(p => p).ToArray();
 
             var filesCount = FilePaths.Count();
             int fileIndex = 0;
@@ -1122,7 +1254,7 @@ namespace Ajuro.IEX.Downloader.Services
                 decimal anchor = 0;
                 string anchorMinute = data[0].minute;
                 decimal price = 0;
-                float percent = 0;
+                double percent = 0;
                 for (int i = 0; i < data.Count; i++)
                 {
                     if (!data[i].marketAverage.HasValue || data[i].marketAverage.Value <= 0)
@@ -1158,7 +1290,7 @@ namespace Ajuro.IEX.Downloader.Services
                         if (values.Any(p => p <= 0))
                         {
                             continue; // Missing values in frame
-                        }
+                        }/*
                         var sample = new Sample
                         {
                             Code = symbolCode,
@@ -1168,17 +1300,17 @@ namespace Ajuro.IEX.Downloader.Services
                             Timestamp = new DateTimeOffset(DateTime.Parse(dateString + " " + data[i].minute)).ToUnixTimeSeconds(),
                             FramePercent = anchor / 100 * data[i - FrameSize].marketAverage.Value,
                             BreakPercent = anchor / 100 * data[i - BufferSize - FrameSize].marketAverage.Value,
-                            Values = data.Skip(i - BufferSize - FrameSize).Take(BufferSize + FrameSize).Select(p => p.marketAverage.HasValue ? p.marketAverage.Value : 0)
+                            // Values = data.Skip(i - BufferSize - FrameSize).Take(BufferSize + FrameSize).Select(p => p.marketAverage.HasValue ? p.marketAverage.Value : 0)
                         };
                         anchor = price;
                         sample.Distance = sample.Timestamp - sample.From;
-
                         if (take == 0 || samples.Count < take)
                         {
                             samples.Add(sample);
                         }
+                        */
 
-                        if (take > 0 && samples.Count == take && !saveFile)
+                        if (resultSelector.Take > 0 && samples.Count == resultSelector.Take && !resultSelector.SaveFile)
                         {
                             return samples;
                         }
@@ -1188,7 +1320,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return samples;
         }
-        public async Task<Tick> UpsertTicks(Symbol symbol, DateTime date, object[][] ticksArray)
+        public async Task<Tick> UpsertTicks(BaseSelector selector, Symbol symbol, DateTime date, object[][] ticksArray)
         {
             long seconds = 0;
             if (date > DateTime.MinValue)

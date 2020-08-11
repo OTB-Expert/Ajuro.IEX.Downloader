@@ -61,6 +61,7 @@ namespace Ajuro.Core.Testing
         [TestMethod]
         public void Can_Generate_Downloads_Summary()
         {
+            BaseSelector selector = new BaseSelector(CommandSource.UnitTesting) { };
             allUseCases = new List<UseCase>()
             {
                 new UseCase()
@@ -75,7 +76,7 @@ namespace Ajuro.Core.Testing
             };
 
             LoggingObjectsItems.Clear();
-            var result = downloaderService.BuildDownloadSummary(false).Result;
+            var result = downloaderService.BuildDownloadSummary(selector, false).Result;
             Assert.IsTrue(result.Count == 505, "Unexpected number of symbols");
             var aaplSummary = result.FirstOrDefault(p => p.Code == "AAPL");
 
@@ -101,6 +102,7 @@ namespace Ajuro.Core.Testing
         [TestMethod]
         public void Can_Aggregate_Files()
         {
+            BaseSelector selector = new BaseSelector(CommandSource.UnitTesting) { };
             allUseCases = new List<UseCase>()
             {
                 new UseCase()
@@ -115,7 +117,7 @@ namespace Ajuro.Core.Testing
             };
 
             LoggingObjectsItems.Clear();
-            var result = downloaderService.GetAllHistoricalFromDb(true).Result;
+            var result = downloaderService.GetAllHistoricalFromDb(selector, true).Result;
 
             var aaplSummary = result.FirstOrDefault(p => p.Symbol == "AAPL");
             Assert.IsTrue(aaplSummary.Samples == 9, "Unexpected number of ticks for symbol");
