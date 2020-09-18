@@ -2,7 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Linq;
 using Ajuro.Net.Types.Stock.Models;
-using Ajuro.Net.Types.UnitTest;
+using Ajuro.Net.Testing;
 using Ajuro.IEX.Downloader.Services;
 using System;
 

@@ -1,0 +1,14 @@
+[
+	{
+		"UserId": 1,
+		"Token": "USER_01",
+		"Name": "USER_01",
+		"Email": "Otb_UnitTests_01_@mailinator.com"
+	},
+	{
+		"UserId": 2,
+		"Token": "USER_02",
+		"Name": "USER_02",
+		"Email": "Otb_UnitTests_02_@mailinator.com"
+	}
+]

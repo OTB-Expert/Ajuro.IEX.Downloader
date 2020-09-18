@@ -5,8 +5,17 @@
     <ApplicationInsightsResourceId>/subscriptions/a8b34eaa-c91a-4d8c-9897-927cb94ae9e4/resourcegroups/otb/providers/microsoft.insights/components/Cezar-API</ApplicationInsightsResourceId>
     <ApplicationInsightsAnnotationResourceId>/subscriptions/a8b34eaa-c91a-4d8c-9897-927cb94ae9e4/resourcegroups/otb/providers/microsoft.insights/components/Cezar-API</ApplicationInsightsAnnotationResourceId>
     <UserSecretsId>15423edf-090d-4e6d-977c-9c615d40bc25</UserSecretsId>
+    <Configurations>Debug;Release;OTB;_Downloader</Configurations>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>DEBUG;Stock</DefineConstants>
+    <NoWarn>1701;1702;NU1608</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='_Downloader|AnyCPU'">
+    <DefineConstants>DEBUG;Stock</DefineConstants>
+    <NoWarn>1701;1702;NU1608</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='OTB|AnyCPU'">
     <DefineConstants>DEBUG;Stock</DefineConstants>
     <NoWarn>1701;1702;NU1608</NoWarn>
   </PropertyGroup>
@@ -70,7 +79,7 @@
     <ProjectReference Include="..\..\Ajuro.Net.Snippet\Ajuro.Net.Snippet\Ajuro.Net.Snippet.csproj" Condition="'$(Configuration)|$(Platform)'=='Snippet|AnyCPU'" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types.Testing\Ajuro.Net.Types.Testing.csproj" />
+    <ProjectReference Include="..\..\Ajuro.Net.Testing\Ajuro.Net.Testing\Ajuro.Net.Testing.csproj" />
     <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types\Ajuro.Net.Types.csproj" />
     <ProjectReference Include="..\Ajuro.IEX.Downloader\Ajuro.IEX.Downloader.csproj" />
   </ItemGroup>
@@ -80,9 +89,6 @@
   <ItemGroup>
     <Folder Include="TestData\DailySymbolHistory\" />
     <Folder Include="TestData\LargeResults\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Ajuro.Net.Types.Testing.csproj" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties appsettings_1Development_1json__JSONSchema="" /></VisualStudio></ProjectExtensions>

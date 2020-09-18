@@ -160,7 +160,7 @@ namespace Ajuro.IEX.Downloader.Services
         private readonly ITickRepository _tickRepository;
         private readonly INewsRepository _newsRepository;
         private readonly ISymbolRepository _symbolRepository;
-        private readonly IPositionRepository _positionRepository;
+        private readonly IIntentionRepository _positionRepository;
         private readonly ICountryRepository _countryRepository;
         private readonly ICurrencyRepository _currencyRepository;
         private readonly IEndpointRepository _endpointRepository;
@@ -179,7 +179,7 @@ namespace Ajuro.IEX.Downloader.Services
                 ICurrencyRepository currencyRepository,
                 ISymbolRepository symbolRepository,
                 IAlertRepository alertRepository,
-                IPositionRepository positionRepository,
+                IIntentionRepository positionRepository,
                 IDailyRepository dailyRepository,
                 ITickRepository tickRepository,
                 INewsRepository newsRepository,
@@ -308,12 +308,20 @@ namespace Ajuro.IEX.Downloader.Services
             var result = _resultRepository.GetAllByKey(resultKey + "_" + date.ToString("yyyyMMdd")).FirstOrDefault();
             if (result != null && !overWrite)
             {
-                // Try from DB
+                // Try from DB  
                 return (List<GraphModel>)JsonConvert.DeserializeObject<List<GraphModel>>(result.TagString);
             }
             else
             {
                 // Try from file
+                if(downloaderOptions == null)
+                {
+                    // Is from worker
+                    downloaderOptions = new DownloaderOptions()
+                    {
+                        DailyGraphsFolder = ""
+                    };
+                }
                 var stringContent = GetResultFromFile(downloaderOptions.DailyGraphsFolder, resultKey + "_" + date.ToString("yyyyMMdd"));
                 if (!string.IsNullOrEmpty(stringContent))
                 {

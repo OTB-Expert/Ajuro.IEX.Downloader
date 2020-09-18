@@ -1,0 +1,22 @@
+[
+	{
+		"SymbolId": 1,
+		"Code": "AAPL"
+	},
+	{
+		"SymbolId": 2,
+		"Code": "MSFT"
+	},
+	{
+		"SymbolId": 3,
+		"Code": "TSLA"
+	},
+	{
+		"SymbolId": 4,
+		"Code": "AMD"
+	},
+	{
+		"SymbolId": 5,
+		"Code": "BA"
+	}
+]
