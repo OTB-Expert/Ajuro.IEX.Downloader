@@ -20,33 +20,33 @@ namespace Ajuro.Security.Controllers.v3
 
     private readonly IUserRepository _userRepository;
     private readonly ISymbolRepository _symbolRepository;
-    private readonly IAlertRepository _alertRepository;
+    // private readonly IAlertRepository _alertRepository;
     private readonly ITickRepository _tickRepository;
-    private readonly IDailyRepository _dailyRepository;
+    // private readonly IDailyRepository _dailyRepository;
     private readonly IDownloaderService _downloaderService;
-    private readonly ILogRepository _logRepository;
+    // private readonly ILogRepository _logRepository;
     private readonly IResultRepository _resultRepository;
 
-    private string PageToken { get; set; }
+    // private string PageToken { get; set; }
 
     public DownloaderController(
       IUserRepository userRepository,
       ISymbolRepository symbolRepository,
-      IAlertRepository alertRepository,
+      // IAlertRepository alertRepository,
       ITickRepository stockRepository,
-      IDailyRepository dailyRepository,
+      // IDailyRepository dailyRepository,
       IDownloaderService downloaderService,
-      ILogRepository logRepository,
+      // ILogRepository logRepository,
       IResultRepository resultRepository
       )
     {
       _userRepository = userRepository;
       _symbolRepository = symbolRepository;
-      _alertRepository = alertRepository;
+      // _alertRepository = alertRepository;
       _tickRepository = stockRepository;
-      _dailyRepository = dailyRepository;
+      // _dailyRepository = dailyRepository;
       _downloaderService = downloaderService;
-      _logRepository = logRepository;
+      // _logRepository = logRepository;
       _resultRepository = resultRepository;
 
       _downloaderService.SetOptions(new DownloaderOptions()
@@ -69,7 +69,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
     public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost, double save, int margin, int skip, int take)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
 
       return await _downloaderService.CreateFragmentsFromDb(selector, new ResultSelector()
       {
@@ -92,7 +92,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("api/[controller]/{symbolId}/collect")]
     public async Task<JsonResult> GetSymbol(int symbolId)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var date = DateTime.UtcNow.Date;
       var symbol = _symbolRepository.All().FirstOrDefault(p => p.SymbolId == symbolId);
       if (symbol != null)
@@ -106,7 +106,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpPost("download")]
     public async Task<IActionResult> Download(DownloadOptions options)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var reports = await _downloaderService.Download(selector, options);
       return Content(JsonConvert.SerializeObject(reports), "application/json");
     }
@@ -115,21 +115,21 @@ namespace Ajuro.Security.Controllers.v3
     /* ===== --- ===== --- ===== */
 
     /*static*/
-    DateTime lastDate = DateTime.MinValue;
+    DateTime _lastDate = DateTime.MinValue;
     /*static*/
-    int lastSymbol = 0;
+    int _lastSymbol;
 
     [HttpGet("{daysBefore}/file/downloads")]
     public async Task<object> CheckDownloadCompletion(int daysBefore)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       return await _downloaderService.BuildDownloadSummary(selector, false);
     }
 
     [HttpGet("{daysBefore}/database/downloads")]
     public async Task<object> GetCompletion([FromQuery] string action, int daysBefore)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       /*
       var intervals = _tickRepository.All().ToList();
       int counter = intervals.Count();
@@ -162,7 +162,7 @@ namespace Ajuro.Security.Controllers.v3
       var logEntryBreakdown = new LogEntryBreakdown("DownloadsReport");
       var ticks = _tickRepository
         .GetAll()
-        .Where(p => p.Seconds > 0 && p.SymbolId != 0 && (new int[] { 1, 17, 3, 5 }).Contains(p.SymbolId))
+        .Where(p => p.Seconds > 0 && p.SymbolId != 0 && (new [] { 1, 17, 3, 5 }).Contains(p.SymbolId))
         .GroupBy(p => p.SymbolId)
         .OrderByDescending(p => p.Count())
         // .Take(5)
@@ -190,9 +190,9 @@ namespace Ajuro.Security.Controllers.v3
               .GroupBy(p => p.Seconds)
               .Select(p => new IntradayDetail()
               {
-                Samples = p.Sum(p => p.Samples),
+                Samples = p.Sum(t => t.Samples),
                 Count = p.Count(),
-                Seconds = p.Min(p => p.Seconds)
+                Seconds = p.Min(t => t.Seconds)
               });
             foreach (var detail in records)
             {
@@ -232,7 +232,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("aggregate/fromDb/{replace}")]
     public async Task<List<Tick>> AggregateFromDb(bool fromFiles, bool replace)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var reports = await _downloaderService.GetAllHistoricalFromDb(selector, replace);
       return reports;
     }
@@ -240,7 +240,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("aggregate/fromFiles/{replace}")]
     public async Task<Dictionary<int, object[][]>> AggregateFromFiles(bool fromFiles, bool replace)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var reports = await _downloaderService.GetAllHistoricalFromFiles(selector, replace);
       return reports;
     }
@@ -248,7 +248,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("{symbolId}/collect/{date}")]
     public async Task<JsonResult> GetSymbolsLookup(int symbolId, DateTime date)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var symbol = _symbolRepository.GetAll().FirstOrDefault(p => p.SymbolId == symbolId);
       StockReport report = null;
       if (symbol != null)
@@ -261,8 +261,8 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("collect/historical/{skip}/{days}/{fromFiles}")]
     public async Task<List<StockReport>> CollectHistoricalData(int days, int skip, int fromFiles)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
-      var dates = new List<DateTime>() { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      var dates = new List<DateTime>();
       for (var i = days; i >= skip; i--)
       {
         dates.Add(DateTime.UtcNow.Date.AddDays(-i));
@@ -276,14 +276,14 @@ namespace Ajuro.Security.Controllers.v3
       {
         foreach (var date in dates)
         {
-          if (lastDate > date)
+          if (_lastDate > date)
           {
             continue;
           }
-          if (date > lastDate)
+          if (date > _lastDate)
           {
-            lastDate = date;
-            lastSymbol = 0;
+            _lastDate = date;
+            _lastSymbol = 0;
           }
           left--;
           if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
@@ -291,37 +291,35 @@ namespace Ajuro.Security.Controllers.v3
             continue;
           }
 
-          for (int symi = 0; symi < symbols.Count; symi++)
+          for (int index = 0; index < symbols.Count; index++)
           {
-            if (lastDate > date)
+            if (_lastDate > date)
             {
               break;
             }
-            if (lastSymbol >= symi)
+            if (_lastSymbol >= index)
             {
               continue;
             }
-            if (symi > lastSymbol)
+            if (index > _lastSymbol)
             {
-              lastSymbol = symi;
+              _lastSymbol = index;
             }
-            var symbol = symbols[symi];
+            var symbol = symbols[index];
             if (!_downloaderService.GetSP500().Contains(symbol.Code))
             {
               continue;
             }
             symbolIndex--;
-            Console.WriteLine("Downloading... " + date.ToShortDateString() + " " + symi);
-            StockReport report = null;
-            if (symbol != null)
+            Console.WriteLine("Downloading... " + date.ToShortDateString() + " " + index);
+            // StockReport report = null;
+            // var stringData = 
+            await _downloaderService.FetchString(selector, new DownloadOptions()
             {
-              var stringData = await _downloaderService.FetchString(selector, new DownloadOptions()
-              {
-                SymbolIds = new int[] { symbol.SymbolId },
-                Dates = new DateTime[] { date },
-                FromFileIfExists = true
-              });
-            }
+              SymbolIds = new [] { symbol.SymbolId },
+              Dates = new [] { date },
+              FromFileIfExists = true
+            });
           }
         }
       }
@@ -334,8 +332,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpPost("fragments/{token}/{mode}")]
     public async Task<IEnumerable<Sample>> GetFragmentsPost([FromBody] ResultSelector resultSelector, string token, int mode)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
-      selector.User = await _userRepository.GetByTokenAsync(token);
+      var selector = new BaseSelector(CommandSource.Endpoint) {User = await _userRepository.GetByTokenAsync(token)};
       return await _downloaderService.CreateFragmentsFromDb(selector, resultSelector);
     }
 
@@ -343,7 +340,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("pool")]
     public async Task<IActionResult> Pool()
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var symbols = await _downloaderService.Pool(selector);
 
       var endpoint = new StockEndpoint()
@@ -365,12 +362,12 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("symbol/{symbolId}/pool/{date}")]
     public async Task<JsonResult> GetSymbolsOnDate(int symbolId, DateTime date)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       if (date == DateTime.MinValue)
       {
         return Json(null);
       }
-      var l = _symbolRepository.All().Where(p => p.Name.Contains("oeing")).ToList();
+      // var l = _symbolRepository.All().Where(p => p.Name.Contains("oeing")).ToList();
       var symbol = _symbolRepository.All().FirstOrDefault(p => p.SymbolId == symbolId);
       if (symbol != null)
       {
@@ -383,7 +380,7 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("collect/{i}")]
     public async Task<IActionResult> Collect(int i)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       var symbols = _symbolRepository.GetAllActive().Select(p => p).ToList();
       List<StockReport> reports = new List<StockReport>();
       foreach (var symbol in symbols)
@@ -400,11 +397,11 @@ namespace Ajuro.Security.Controllers.v3
     [HttpGet("collect/{date}")]
     public async Task<JsonResult> GetSymbolsOnDate(string date)
     {
-      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var selector = new BaseSelector(CommandSource.Endpoint);
       DateTime collectionDate = DateTime.MinValue;
       DateTime.TryParse(date, out collectionDate);
       var symbols = _symbolRepository.GetAllActive().ToList();
-      Tick tick = null;
+      // Tick tick = null;
       var items = 0;
       foreach (var symbol in symbols)
       {

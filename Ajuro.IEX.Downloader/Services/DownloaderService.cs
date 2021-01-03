@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http.Internal;
 
 namespace Ajuro.IEX.Downloader.Services
 {
@@ -48,6 +49,9 @@ namespace Ajuro.IEX.Downloader.Services
         Task<object[][]> ProcessString(BaseSelector selector, DownloadOptions options, string dataString = null);
 
         Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount);
+
+        IQueryable<Daily> GetDailyRecordsByReportingOptions(ReportingOptions reportingOptions);
+        IQueryable<Tick> GetIntradayRecordsByReportingOptions(ReportingOptions reportingOptions);
 
         Task<int> FetchToday(BaseSelector selector);
 
@@ -385,7 +389,7 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 catch (Exception ex)
                 {
-                    new Info(selector, symbolId, "Exception fetching intraday for symbol " + Static.SymbolCodeFromId[symbolId] + ": " + ex.Message + (ex.InnerException != null ? ", " + ex.InnerException.Message + (ex.InnerException.InnerException != null ? ", " + ex.InnerException.InnerException.Message : "") : ""));
+                    new Info(selector, symbolId, ex, "Exception fetching intraday for symbol " + Static.SymbolCodeFromId[symbolId] + ": " + ex.Message + (ex.InnerException != null ? ", " + ex.InnerException.Message + (ex.InnerException.InnerException != null ? ", " + ex.InnerException.InnerException.Message : "") : ""));
                 }
             }
             await SaveResult(selector, result, startTime, resultKey + "_" + date.ToString("yyyyMMdd"), DailyGraphsSP500, true, downloaderOptions.DailyGraphsFolder, new SaveResultsOptions
@@ -599,7 +603,7 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 catch (Exception ex)
                 {
-
+                    new Info(selector, -1, ex, string.Empty);
                 }
             }
             if (saveToFile)
@@ -764,6 +768,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             catch (Exception ex)
             {
+                new Info(selector, -1, ex, string.Empty);
             }
             return null;
         }
@@ -900,6 +905,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             catch (Exception ex)
             {
+                new Info(selector, -1, ex, string.Empty);
                 // _logger.LogError(ex, "StockService Exception");
                 logEntryBreakdown.Messages.Add(ex.Message + (ex.InnerException != null ? ". " + ex.InnerException.Message : ""));
                 logEntryBreakdown.Messages.Add(symbol.Code);
@@ -1026,6 +1032,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     catch (Exception ex)
                     {
+                        new Info(selector, -1, ex, string.Empty);
                         itemsLength = -1;
                     }
                     if (left == 0 || left % 50 == 0)
@@ -1090,11 +1097,19 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if(saveResultsOptions.SaveToDb)
                     {
-                        await _resultRepository.AddAsync(existentResult);
+                        try
+                        {
+                            await _resultRepository.AddAsync(existentResult);
+                        }
+                        catch (Exception ex)
+                        {
+                            new Info(selector, -1, ex, "Duplicate result");
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
+                    new Info(selector, -1, ex, string.Empty);
                     File.WriteAllText(backupFolder + "\\" + key + ".json", existentResult.TagString);
                 }
             }
@@ -1118,6 +1133,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     catch (Exception ex)
                     {
+                        new Info(selector, -1, ex, string.Empty);
                         File.WriteAllText(backupFolder + "\\" + key + ".json", JsonConvert.SerializeObject(content));
                     }
                 }
@@ -1245,6 +1261,40 @@ namespace Ajuro.IEX.Downloader.Services
                 dates.Add(DateTime.UtcNow.Date.AddDays(-i));
             }
             return await GetBulk(selector, dates);
+        }
+
+        public IQueryable<Daily> GetDailyRecordsByReportingOptions(ReportingOptions reportingOptions)
+        {
+            var items = _dailyRepository.All().Where(p =>
+                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol.Code == reportingOptions.Code) &&
+                (reportingOptions.SymbolId == 0 || p.Symbol.SymbolId == reportingOptions.SymbolId)
+            );
+            if (reportingOptions.StartingAt > DateTime.MinValue)
+            {
+                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
+            }
+            if (reportingOptions.Take > 0)
+            {
+                items = items.Take(reportingOptions.Take);
+            }
+            return items;
+        }
+
+        public IQueryable<Tick> GetIntradayRecordsByReportingOptions(ReportingOptions reportingOptions)
+        {
+            var items = _tickRepository.All().Where(p =>
+                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol == reportingOptions.Code) &&
+                (reportingOptions.SymbolId == 0 || p.SymbolId == reportingOptions.SymbolId)
+            );
+            if (reportingOptions.StartingAt > DateTime.MinValue)
+            {
+                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
+            }
+            if (reportingOptions.Take > 0)
+            {
+                items = items.Take(reportingOptions.Take);
+            }
+            return items;
         }
 
         public async Task<List<StockResult>> GetLastDays(BaseSelector selector, int days)

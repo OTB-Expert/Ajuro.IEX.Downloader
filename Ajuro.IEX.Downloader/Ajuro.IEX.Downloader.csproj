@@ -19,6 +19,10 @@
     <PackageLicenseFile>license.md</PackageLicenseFile>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <NoWarn>1701;1702;NU1608;CS1998;CS0219;CS0162;CS0168;CS19998;CS0414;CS0436</NoWarn>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="Controller\**" />
     <EmbeddedResource Remove="Controller\**" />
