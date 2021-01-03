@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Ajuro.IEX.Downloader.Models;
 using Ajuro.Net.Types.Stock.Models;
 using Ajuro.Net.Stock.Repositories;
+using Ajuro.Net.Types.Stock;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Ajuro.Security.Controllers.v3
@@ -119,11 +120,17 @@ namespace Ajuro.Security.Controllers.v3
     /*static*/
     int _lastSymbol;
 
-    [HttpGet("{daysBefore}/file/downloads")]
-    public async Task<object> CheckDownloadCompletion(int daysBefore)
+    [HttpGet("code/{code}/from/{from}/take/{take}/file/downloads")]
+    public async Task<object> CheckDownloadCompletion(DateTime from, int take, string code)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
-      return await _downloaderService.BuildDownloadSummary(selector, false);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Take = take,
+        StartingAt = from,
+        Code = code == "any" ? null: code
+      };
+      return await _downloaderService.BuildDownloadSummary(selector, reportingOptions, false);
     }
 
     [HttpGet("{daysBefore}/database/downloads")]
@@ -229,6 +236,7 @@ namespace Ajuro.Security.Controllers.v3
 
 
 #if DEBUG
+    
     [HttpGet("aggregate/fromDb/{replace}")]
     public async Task<List<Tick>> AggregateFromDb(bool fromFiles, bool replace)
     {
@@ -306,7 +314,7 @@ namespace Ajuro.Security.Controllers.v3
               _lastSymbol = index;
             }
             var symbol = symbols[index];
-            if (!_downloaderService.GetSP500().Contains(symbol.Code))
+            if (!Static.SP500.Contains(symbol.Code))
             {
               continue;
             }

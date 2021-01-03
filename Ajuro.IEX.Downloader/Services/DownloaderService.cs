@@ -18,41 +18,47 @@ namespace Ajuro.IEX.Downloader.Services
 {
     public enum Step {
         DownloadIntraday, // will download from IEX Cloud resulting in one record per SymbolId and per Day like: CODE-yyyyMMdd
-        AggredateDays, // will get all the records of a symbol, order them and merge them into one record
+        AggregdateDays, // will get all the records of a symbol, order them and merge them into one record
         AggregateSymbols
     }
     public interface IDownloaderService
     {
 
-        Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options);
 
         void SetOptions(DownloaderOptions options);
 
         // If you need this, you're doing the wrong thing! 
         // DownloaderOptions GetOptions();
 
-        string[] GetSP500();
-        Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, bool overWrite);
-        Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder, SaveResultsOptions saveResultsOptions);
-        string GetResultFromFile(string folder, string fileName); 
-        Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date);
 
+        #region FRAGMENTS
         Task<IEnumerable<Sample>> CreateFragmentsFromFiles(BaseSelector selector, ResultSelector resultSelector);
         Task<IEnumerable<Sample>> CreateFragmentsFromDb(BaseSelector selector, ResultSelector resultSelector);
+        
+        #endregion
+        
+        #region CACHING
+        
+        Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+        Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+        string GetResultFromFile(string folder, string fileName); 
+        
+        #endregion
 
-        Task<List<StockReport>> FetchLast(BaseSelector selector, Symbol symbol, int i);
-
-        Task<StockReport> FetchDate(BaseSelector selector, Symbol symbol, DateTime date, bool saveOnly = false, bool fromFile = false);
-
-        Task<string> FetchString(BaseSelector selector, DownloadOptions options);
-
-        Task<object[][]> ProcessString(BaseSelector selector, DownloadOptions options, string dataString = null);
-
-        Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount);
-
+        #region REPORTING
+        
+        Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector);
+        List<DownloadIntradayReport> GetFileRecordsByReportingOptions(ReportingOptions reportingOptions);
         IQueryable<Daily> GetDailyRecordsByReportingOptions(ReportingOptions reportingOptions);
         IQueryable<Tick> GetIntradayRecordsByReportingOptions(ReportingOptions reportingOptions);
+        Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, ReportingOptions reportingOptions, bool overWrite);
+        
+        #endregion
 
+        #region COLLECT DATA
+        
+        Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options);
+        Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date);
         Task<int> FetchToday(BaseSelector selector);
 
         Task<List<StockReport>> QuickPull(BaseSelector selector, bool isControl = false);
@@ -61,11 +67,26 @@ namespace Ajuro.IEX.Downloader.Services
 
         Task<Tick> UpsertTicks(BaseSelector selector, Symbol symbol, DateTime date, object[][] ticksArray);
         Task<StockReport> Pool(BaseSelector selector, Symbol symbol, DateTime date);
+        
+        
+        Task<List<StockReport>> FetchLast(BaseSelector selector, Symbol symbol, int i);
 
-        Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
-        Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwrite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false);
+        Task<StockReport> FetchDate(BaseSelector selector, Symbol symbol, DateTime date, bool saveOnly = false, bool fromFile = false);
+
+        Task<string> FetchString(BaseSelector selector, DownloadOptions options);
+        
+        Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount);
         Task<IEnumerable<IEnumerable<object[][]>>> CollectIntraday(BaseSelector selector, DownloadOptions options);
-        Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector);
+        
+        #endregion
+        
+        #region PROCESING
+        
+        Task<object[][]> ProcessString(BaseSelector selector, DownloadOptions options, string dataString = null);
+        Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder, SaveResultsOptions saveResultsOptions);
+
+        #endregion
+
     }
 
     public class DownloadOptions
@@ -157,466 +178,40 @@ namespace Ajuro.IEX.Downloader.Services
     {
         private readonly IResultRepository _resultRepository;
         private readonly IUserRepository _userRepository;
-        private readonly IAlpacaAccountRepository _alpacaAccountRepository;
-        private readonly IAlpacaOrderRepository _alpacaOrderRepository;
-        private readonly IAlpacaPositionRepository _alpacaPositionRepository;
         private readonly IDailyRepository _dailyRepository;
         private readonly ITickRepository _tickRepository;
-        private readonly INewsRepository _newsRepository;
         private readonly ISymbolRepository _symbolRepository;
-        private readonly IIntentionRepository _positionRepository;
-        private readonly ICountryRepository _countryRepository;
-        private readonly ICurrencyRepository _currencyRepository;
         private readonly IEndpointRepository _endpointRepository;
         private readonly IAlertRepository _alertRepository;
         // private readonly ILogger<DownloaderService> _logger;
-        private readonly ISubscriptionRepository _subscriptionRepository;
         private readonly ILogRepository _logRepository;
 
         public DownloaderService
             (
                 IUserRepository userRepository,
-                IAlpacaAccountRepository alpacaAccountRepository,
-                IAlpacaOrderRepository alpacaOrderRepository,
-                IAlpacaPositionRepository alpacaPositionRepository,
-                ICountryRepository countryRepository,
-                ICurrencyRepository currencyRepository,
                 ISymbolRepository symbolRepository,
                 IAlertRepository alertRepository,
-                IIntentionRepository positionRepository,
                 IDailyRepository dailyRepository,
                 ITickRepository tickRepository,
-                INewsRepository newsRepository,
                 IEndpointRepository endpointRepository,
-                ISubscriptionRepository subscriptionRepository,
                 ILogRepository logRepository,
                 IResultRepository resultRepository
                 // ILogger<DownloaderService> logger
             )
         {
-            _alpacaAccountRepository = alpacaAccountRepository;
-            _alpacaOrderRepository = alpacaOrderRepository;
-            _alpacaPositionRepository = alpacaPositionRepository;
             _userRepository = userRepository;
             _dailyRepository = dailyRepository;
-            _countryRepository = countryRepository;
-            _currencyRepository = currencyRepository;
-            _positionRepository = positionRepository;
             _symbolRepository = symbolRepository;
             _alertRepository = alertRepository;
             _endpointRepository = endpointRepository;
             _tickRepository = tickRepository;
-            _newsRepository = newsRepository;
             // _logger = logger;
-            _subscriptionRepository = subscriptionRepository;
             _resultRepository = resultRepository;
             _logRepository = logRepository;
         }
 
-
-        public async Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector)
-        {
-            List<FileResourceGroup> result = new List<FileResourceGroup>();
-
-            string[] dailySymbolHistoryFiles;
-            dailySymbolHistoryFiles = new string[] { };// Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder);
-            dailySymbolHistoryFiles = dailySymbolHistoryFiles.OrderBy(p => p).ToArray();
-
-            string[] dailyGraphsFiles;
-            dailyGraphsFiles = Directory.GetFiles(downloaderOptions.DailyGraphsFolder);
-            dailyGraphsFiles = dailyGraphsFiles.OrderBy(p => p).ToArray();
-
-            string[] symbolHistoryFiles;
-            symbolHistoryFiles = Directory.GetFiles(downloaderOptions.SymbolHistoryFolder);
-            symbolHistoryFiles = symbolHistoryFiles.OrderBy(p => p).ToArray();
-
-            string[] largeResultsFiles;
-            largeResultsFiles = Directory.GetFiles(downloaderOptions.LargeResultsFolder);
-            largeResultsFiles = largeResultsFiles.OrderBy(p => p).ToArray();
-
-            foreach (var path in dailySymbolHistoryFiles)
-            {
-                var fileInfo = new FileInfo(path);
-                result.Add(new FileResourceGroup
-                {
-                    Category = "DailySymbolHistory",
-                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
-                    Name = fileInfo.Name,
-                    Length = fileInfo.Length,
-                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
-                });
-            }
-
-            foreach (var path in dailyGraphsFiles)
-            {
-                var fileInfo = new FileInfo(path);
-                result.Add(new FileResourceGroup
-                {
-                    Category = "DailySymbolHistory",
-                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
-                    Name = fileInfo.Name,
-                    Length = fileInfo.Length,
-                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
-                });
-            }
-
-            foreach (var path in symbolHistoryFiles.Take(50))
-            {
-                var fileInfo = new FileInfo(path);
-                result.Add(new FileResourceGroup
-                {
-                    Category = "DailySymbolHistory",
-                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
-                    Name = fileInfo.Name,
-                    Length = fileInfo.Length,
-                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
-                });
-            }
-
-            foreach (var path in largeResultsFiles)
-            {
-                var fileInfo = new FileInfo(path);
-                result.Add(new FileResourceGroup
-                {
-                    Category = "DailySymbolHistory",
-                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
-                    Name = fileInfo.Name,
-                    Length = fileInfo.Length,
-                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
-                });
-            }
-            return result;
-        }
-
-        public async Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date)
-        {
-            if (Static.SymbolsDictionary.Count() == 0)
-            {
-                return null;
-            }
-            bool saveToday = false;
-            if (date == DateTime.MinValue)
-            {
-                saveToday = true;
-                date = DateTime.UtcNow.Date;
-            }
-
-            new Info(selector, (date == DateTime.Today.AddDays(-1) ? "Save: ":"Memo: ") + date.ToString());
-
-            var resultKey = "DailyGraphsSP500";
-            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var symbIds = new int[] { };
-
-            // var date = DateTime.UtcNow.AddDays(-1);
-            var overWrite = false;
-            var result = _resultRepository.GetAllByKey(resultKey + "_" + date.ToString("yyyyMMdd")).FirstOrDefault();
-            if (result != null && !overWrite)
-            {
-                // Try from DB  
-                return (List<GraphModel>)JsonConvert.DeserializeObject<List<GraphModel>>(result.TagString);
-            }
-            else
-            {
-                // Try from file
-                if(downloaderOptions == null)
-                {
-                    // Is from worker
-                    downloaderOptions = new DownloaderOptions()
-                    {
-                        DailyGraphsFolder = ""
-                    };
-                }
-                var stringContent = GetResultFromFile(downloaderOptions.DailyGraphsFolder, resultKey + "_" + date.ToString("yyyyMMdd"));
-                if (!string.IsNullOrEmpty(stringContent))
-                {
-                    var items = (List<GraphModel>)JsonConvert.DeserializeObject<List<GraphModel>>(stringContent);
-                    return items.Where(p => symbIds.Length == 0 || symbIds.Contains(p.SymbolId));
-                }
-            }
-
-            var DailyGraphsSP500 = new List<GraphModel>();
-            if (Static.SymbolCodes == null || Static.SymbolCodes.Length == 0)
-            {
-                return DailyGraphsSP500;
-            }
-            var triggerSymbolIds = Static.Triggers.Select(p => p.SymbolId).Where(symbolId => Static.SymbolCodeFromId.ContainsKey(symbolId) && _userRepository.GetSP500().Any(s => s == Static.SymbolCodeFromId[symbolId])).Distinct();
-            var triggerSymbolIdsCount = triggerSymbolIds.Count();
-            var count = triggerSymbolIds.Count();
-            var left = count;
-            var uncachedSymbolIds = triggerSymbolIds.Where(symbolId => !Static.SymbolsIntraday.ContainsKey(symbolId));
-            var uncachedSymbolIdsCount = uncachedSymbolIds.Count();
-            var downloadedSymbolTicks = _tickRepository.All().Where(p => uncachedSymbolIds.Contains(p.SymbolId) && p.Seconds == Static.MidnightSecondsFromSeconds(Static.SecondsFromDateTime(date)));
-            var downloadedSymbolTicksCount = downloadedSymbolTicks.Count();
-            foreach (var symbolId in triggerSymbolIds)
-            {
-                left--;
-                try
-                {
-                    var fromDb = downloadedSymbolTicks.Any(s => s.SymbolId == symbolId);
-                    if (fromDb)
-                    {
-                        Static.SymbolsIntraday.Add(symbolId, JsonConvert.DeserializeObject<object[][]>(downloadedSymbolTicks.FirstOrDefault(s => s.SymbolId == symbolId).Serialized));
-                    }
-                    new Info(selector, symbolId, "Intraday [" + left + " / " + count + "] " + Static.SymbolCodeFromId[symbolId] + "... " + (Static.SymbolsIntraday.ContainsKey(symbolId) ? " From memory!" : "") + (fromDb ? " From bulk DB!" : ""));
-                    DailyGraphsSP500.Add(
-            // result = Static.Triggers.Select(p => 
-            new GraphModel()
-            {
-                SymbolId = symbolId,
-                Symbol = Static.SymbolCodeFromId[symbolId],
-                Values = Static.SymbolsIntraday.ContainsKey(symbolId) ? Static.SymbolsIntraday[symbolId] : (await CollectIntraday(selector, new DownloadOptions()
-                {
-                    SymbolIds = new int[]
-            {
-            symbolId
-                },
-                    Dates = new DateTime[] {
-            date
-                },
-                    FromDbIfExists = true,
-                    FromFileIfExists = true, // If there is no DB entry use the file
-                    IfDbMissingSave = true,
-#if DEBUG
-                    IfFileMissingSave_DailySymbolHistoryFolder = true, // Only save files on local
-#else
-                    IfFileMissingSave_DailySymbolHistoryFolder = false, // = date == DateTime.Today.AddDays(-1), // Only save yesturday
-#endif
-                    UpdateDbIfExists = false,
-                    ReplaceFileIfExists = false,
-                    BuildDictionary = true
-                })).FirstOrDefault().FirstOrDefault(),
-            });
-                }
-                catch (Exception ex)
-                {
-                    new Info(selector, symbolId, ex, "Exception fetching intraday for symbol " + Static.SymbolCodeFromId[symbolId] + ": " + ex.Message + (ex.InnerException != null ? ", " + ex.InnerException.Message + (ex.InnerException.InnerException != null ? ", " + ex.InnerException.InnerException.Message : "") : ""));
-                }
-            }
-            await SaveResult(selector, result, startTime, resultKey + "_" + date.ToString("yyyyMMdd"), DailyGraphsSP500, true, downloaderOptions.DailyGraphsFolder, new SaveResultsOptions
-            {
-                SaveToDb = true,
-                SaveToFile = true
-            });
-            return DailyGraphsSP500;
-        }
-
-
-        public async Task<string> CreateAndSaveSegments(BaseSelector selector, ResultSelector resultSelector)
-        {
-            var TagString = resultSelector.TagString;
-            if (string.IsNullOrEmpty(TagString))
-            {
-                StringBuilder sb = new StringBuilder();
-                var samples = await CreateFragmentsFromDb(selector, resultSelector);
-                foreach (var sample in samples)
-                {
-                    sb.AppendLine(sample.ToString());
-                }
-                TagString = sb.ToString();
-            }
-
-            resultSelector.TagString = null;
-            var key = $"Fragments_id_{ resultSelector.SymbolId }_len_{ resultSelector.Length }_len_{ resultSelector.Lost }_len_{ resultSelector.Margin }_len_{ resultSelector.Save }";
-            var existentResult = _resultRepository.GetAllByKey(key).FirstOrDefault();
-            if (existentResult != null)
-            {
-                if (resultSelector.Replace)
-                {
-                    existentResult.TagString = TagString;
-                    var s = _resultRepository.UpdateAsync(existentResult).Result;
-                }
-            }
-            else
-            {
-                await _resultRepository.AddAsync(new Result(selector)
-                {
-                    TagString = TagString,
-                    Key = key,
-                    User = null
-                });
-            }
-            return resultSelector.TagString;
-        }
-
-        public async Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
-        {
-            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-            var resultKey = "AllHistoricalDictionary";
-
-            if (File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
-            {
-                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
-                return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(fileContent);
-            }
-            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
-            if (result != null && !overWrite)
-            {
-                return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(result.TagString);
-            }
-
-            var symbols = _symbolRepository.GetAllActive().ToList();
-            var aggregatedTicks = new List<Tick>();
-            for (int symi = 0; symi < symbols.Count; symi++)
-            {
-                if (!GetSP500().Contains(symbols[symi].Code))
-                {
-                    continue;
-                }
-
-                var aggregatedTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == 0 && p.SymbolId == symbols[symi].SymbolId);
-                if (aggregatedTick == null)
-                {
-                    var tickArray = await ProcessString(selector, new DownloadOptions(){
-                        SymbolIds = new int[] { symbols[symi].SymbolId },
-                        Dates = new DateTime[] { DateTime.MinValue },
-                        FromFileIfExists = true,
-                        ReplaceFileIfExists = overwite,
-                        SaveOnly = true
-                    });
-
-                    aggregatedTick = await UpsertTicks(selector, symbols[symi], DateTime.MinValue, tickArray);
-                }
-                aggregatedTicks.Add(aggregatedTick);
-
-                if (saveToFile)
-                {
-                    var success = await SaveResult(selector, result, startTime, resultKey, aggregatedTicks, false, downloaderOptions.LargeResultsFolder, new SaveResultsOptions()
-                    {
-                        SaveToDb = true,
-                        SaveToFile = true
-                    });
-                }
-            }
-            return aggregatedTicks;
-        }
-
-        public async Task<IEnumerable<IEnumerable<object[][]>>> CollectIntraday(BaseSelector selector, DownloadOptions options)
-        {
-            var result = new List<List<object[][]>>();
-            foreach (DateTime date in options.Dates)
-            {
-                var dayItems = new List<object[][]>();
-                var seconds = Static.SecondsFromDateTime(date);
-                foreach (int symbolId in options.SymbolIds)
-                {
-                    object[][] values = null;
-                    if (options.FromDbIfExists)
-                    {
-                        var dbEntry = _tickRepository.All().FirstOrDefault(p=>p.SymbolId == symbolId && p.Seconds == Static.MidnightSecondsFromSeconds(seconds));
-                        if(dbEntry != null)
-                        {
-                            new Info(selector, symbolId, "  From DB... " + Static.SymbolCodeFromId[dbEntry.SymbolId]);
-                            values = JsonConvert.DeserializeObject<object[][]>(dbEntry.Serialized);
-                        }
-                    }
-                    if (values == null)
-                    {
-                        var dataString = await FetchString(selector, new DownloadOptions()
-                        {
-                            SymbolIds = new int[] { symbolId },
-                            Dates = new DateTime[] { date },
-                            FromFileIfExists = false,
-                            IfFileMissingSave_DailySymbolHistoryFolder = false
-                        });
-                        values = await ProcessString(selector, options, dataString);
-                    }
-                    // var items = (List<IexItem>)JsonConvert.DeserializeObject<List<IexItem>>(dataString);
-                    // var values = items.Where(p => p.marketAverage.HasValue).Where(p => p.marketAverage.Value != -1).Select(p => new object[] { (Int64)(p.date.AddSeconds(ToSeconds(p.minute)).Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds, p.marketAverage.Value }).ToArray();
-                    if (options.IfDbMissingSave)
-                    {
-                       var record = _tickRepository.GetByDayAndSymbolId(symbolId, seconds).FirstOrDefault();
-                        if(record == null)
-                        {
-                            record = new Tick()
-                            {
-                                SymbolId = symbolId,
-                                Samples = values.Count(),
-                                Seconds = Static.MidnightSecondsFromSeconds(seconds),
-                                Serialized = JsonConvert.SerializeObject(values),
-                                Date = date,
-                                Symbol = Static.SymbolCodeFromId[symbolId]
-                            };
-                            await _tickRepository.AddAsync(record);
-                        }
-                        else if (options.UpdateDbIfExists)
-                        {
-
-                        }
-                    }
-                    if (options.BuildDictionary)
-                    {
-                        if (Static.SymbolsIntraday.ContainsKey(symbolId))
-                        {
-                            Static.SymbolsIntraday[symbolId] = values;
-                        }
-                        else
-                        {
-                            Static.SymbolsIntraday.Add(symbolId, values);
-                        }
-                    }
-                    dayItems.Add(values);
-                }
-                result.Add(dayItems);
-            }
-            return result;
-        }
-
-        public async Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
-        {
-            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            overWrite = false;
-
-            var resultKey = "AllHistoricalDictionary";
-            Result result = null;
-            if (!overWrite && File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
-            {
-                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
-                result = (Result)JsonConvert.DeserializeObject<Result>(fileContent);
-                return (Dictionary<int, object[][]>)result.Tag;
-            }
-
-            Dictionary<int, object[][]> priceDictionary = new Dictionary<int, object[][]>();
-            var symbols = _symbolRepository.GetAllActive().ToList();
-            for (int symi = 0; symi < symbols.Count; symi++)
-            {
-                if (!GetSP500().Contains(symbols[symi].Code))
-                {
-                    continue;
-                }
-                if(symbols[symi].Code == "KO")
-                {
-
-                }
-
-                var tickArray = await ProcessString(selector, new DownloadOptions()
-                {
-                    SymbolIds = new int[] { symbols[symi].SymbolId },
-                    Dates = new DateTime[] { DateTime.MinValue },
-                    FromFileIfExists = true,
-                    SaveOnly = false,
-                    ReplaceFileIfExists = overwite
-                    });
-                try
-                {
-                    priceDictionary.Add(symbols[symi].SymbolId, tickArray);
-                }
-                catch (Exception ex)
-                {
-                    new Info(selector, -1, ex, string.Empty);
-                }
-            }
-            if (saveToFile)
-            {
-                var success = await SaveResult(selector, result, startTime, resultKey, priceDictionary, false, downloaderOptions.LargeResultsFolder, new SaveResultsOptions()
-                {
-                    SaveToDb = false,
-                    SaveToFile = true
-                });
-            }
-            return (Dictionary<int, object[][]>)result.Tag;
-        }
-
+        #region PROCESSING
+        
         private DownloaderOptions downloaderOptions { get; set; }
 
         public DownloaderOptions GetOptions()
@@ -628,7 +223,7 @@ namespace Ajuro.IEX.Downloader.Services
         {
             this.downloaderOptions = downloaderOptions;
         }
-
+        
         /// <summary>
         /// Merge intraday records into one foreach symbol
         /// </summary>
@@ -773,6 +368,373 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
+        public int ToSeconds(string minutes)
+        {
+            if (minutes.IndexOf(':') > 0)
+            {
+                return int.Parse(minutes.Split(':')[0]) * 60 * 60 + int.Parse(minutes.Split(':')[1]) * 60;
+            }
+            return 0;
+        }
+         public string GetResultFromFile(string backupFolder, string key)
+        {
+            if(File.Exists(backupFolder + "\\" + key + ".json"))
+            {
+                return File.ReadAllText(backupFolder + "\\" + key + ".json");
+            }
+            return null;
+        }
+        public async Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder, SaveResultsOptions saveResultsOptions)
+        {
+            if (existentResult == null)
+            {
+                existentResult = new Result(selector)
+                {
+                    Key = key,
+                    TagString = JsonConvert.SerializeObject(content),
+                    EndTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    StartTime = startTime,
+                    // User = currentUser
+                };
+                try
+                {
+                    if (saveResultsOptions.SaveToFile)
+                    {
+                        File.WriteAllText(backupFolder + "\\" + key + ".json", existentResult.TagString);
+                    }
+                    if(saveResultsOptions.SaveToDb)
+                    {
+                        try
+                        {
+                            await _resultRepository.AddAsync(existentResult);
+                        }
+                        catch (Exception ex)
+                        {
+                            new Info(selector, -1, ex, "Duplicate result");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    new Info(selector, -1, ex, string.Empty);
+                    File.WriteAllText(backupFolder + "\\" + key + ".json", existentResult.TagString);
+                }
+            }
+            else
+            {
+                if (replaceIfExists)
+                {
+                    existentResult.TagString = JsonConvert.SerializeObject(content);
+                    existentResult.EndTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    existentResult.StartTime = startTime;
+                    try
+                    {
+                        if (saveResultsOptions.SaveToFile)
+                        {
+                            File.WriteAllText(backupFolder + "\\" + key + ".json", JsonConvert.SerializeObject(content));
+                        }
+                        if(saveResultsOptions.SaveToDb)
+                        {
+                            await _resultRepository.UpdateAsync(existentResult);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        new Info(selector, -1, ex, string.Empty);
+                        File.WriteAllText(backupFolder + "\\" + key + ".json", JsonConvert.SerializeObject(content));
+                    }
+                }
+            }
+            return true;
+        }
+
+       
+        
+        #endregion
+        
+        #region COLLECT DATA
+        
+        public async Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date)
+        {
+            if (Static.SymbolsDictionary.Count() == 0)
+            {
+                return null;
+            }
+            bool saveToday = false;
+            if (date == DateTime.MinValue)
+            {
+                saveToday = true;
+                date = DateTime.UtcNow.Date;
+            }
+
+            new Info(selector, (date == DateTime.Today.AddDays(-1) ? "Save: ":"Memo: ") + date.ToString());
+
+            var resultKey = "DailyGraphsSP500";
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var symbIds = new int[] { };
+
+            // var date = DateTime.UtcNow.AddDays(-1);
+            var overWrite = false;
+            var result = _resultRepository.GetAllByKey(resultKey + "_" + date.ToString("yyyyMMdd")).FirstOrDefault();
+            if (result != null && !overWrite)
+            {
+                // Try from DB  
+                return (List<GraphModel>)JsonConvert.DeserializeObject<List<GraphModel>>(result.TagString);
+            }
+            else
+            {
+                // Try from file
+                if(downloaderOptions == null)
+                {
+                    // Is from worker
+                    downloaderOptions = new DownloaderOptions()
+                    {
+                        DailyGraphsFolder = ""
+                    };
+                }
+                var stringContent = GetResultFromFile(downloaderOptions.DailyGraphsFolder, resultKey + "_" + date.ToString("yyyyMMdd"));
+                if (!string.IsNullOrEmpty(stringContent))
+                {
+                    var items = (List<GraphModel>)JsonConvert.DeserializeObject<List<GraphModel>>(stringContent);
+                    return items.Where(p => symbIds.Length == 0 || symbIds.Contains(p.SymbolId));
+                }
+            }
+
+            var DailyGraphsSP500 = new List<GraphModel>();
+            if (Static.SymbolCodes == null || Static.SymbolCodes.Length == 0)
+            {
+                return DailyGraphsSP500;
+            }
+            var triggerSymbolIds = Static.Triggers.Select(p => p.SymbolId).Where(symbolId => Static.SymbolCodeFromId.ContainsKey(symbolId) && _userRepository.GetSP500().Any(s => s == Static.SymbolCodeFromId[symbolId])).Distinct();
+            var triggerSymbolIdsCount = triggerSymbolIds.Count();
+            var count = triggerSymbolIds.Count();
+            var left = count;
+            var uncachedSymbolIds = triggerSymbolIds.Where(symbolId => !Static.SymbolsIntraday.ContainsKey(symbolId));
+            var uncachedSymbolIdsCount = uncachedSymbolIds.Count();
+            var downloadedSymbolTicks = _tickRepository.All().Where(p => uncachedSymbolIds.Contains(p.SymbolId) && p.Seconds == Static.MidnightSecondsFromSeconds(Static.SecondsFromDateTime(date)));
+            var downloadedSymbolTicksCount = downloadedSymbolTicks.Count();
+            foreach (var symbolId in triggerSymbolIds)
+            {
+                left--;
+                try
+                {
+                    var fromDb = downloadedSymbolTicks.Any(s => s.SymbolId == symbolId);
+                    if (fromDb)
+                    {
+                        Static.SymbolsIntraday.Add(symbolId, JsonConvert.DeserializeObject<object[][]>(downloadedSymbolTicks.FirstOrDefault(s => s.SymbolId == symbolId).Serialized));
+                    }
+                    new Info(selector, symbolId, "Intraday [" + left + " / " + count + "] " + Static.SymbolCodeFromId[symbolId] + "... " + (Static.SymbolsIntraday.ContainsKey(symbolId) ? " From memory!" : "") + (fromDb ? " From bulk DB!" : ""));
+                    DailyGraphsSP500.Add(
+            // result = Static.Triggers.Select(p => 
+            new GraphModel()
+            {
+                SymbolId = symbolId,
+                Symbol = Static.SymbolCodeFromId[symbolId],
+                Values = Static.SymbolsIntraday.ContainsKey(symbolId) ? Static.SymbolsIntraday[symbolId] : (await CollectIntraday(selector, new DownloadOptions()
+                {
+                    SymbolIds = new int[]
+            {
+            symbolId
+                },
+                    Dates = new DateTime[] {
+            date
+                },
+                    FromDbIfExists = true,
+                    FromFileIfExists = true, // If there is no DB entry use the file
+                    IfDbMissingSave = true,
+#if DEBUG
+                    IfFileMissingSave_DailySymbolHistoryFolder = true, // Only save files on local
+#else
+                    IfFileMissingSave_DailySymbolHistoryFolder = false, // = date == DateTime.Today.AddDays(-1), // Only save yesturday
+#endif
+                    UpdateDbIfExists = false,
+                    ReplaceFileIfExists = false,
+                    BuildDictionary = true
+                })).FirstOrDefault().FirstOrDefault(),
+            });
+                }
+                catch (Exception ex)
+                {
+                    new Info(selector, symbolId, ex, "Exception fetching intraday for symbol " + Static.SymbolCodeFromId[symbolId] + ": " + ex.Message + (ex.InnerException != null ? ", " + ex.InnerException.Message + (ex.InnerException.InnerException != null ? ", " + ex.InnerException.InnerException.Message : "") : ""));
+                }
+            }
+            await SaveResult(selector, result, startTime, resultKey + "_" + date.ToString("yyyyMMdd"), DailyGraphsSP500, true, downloaderOptions.DailyGraphsFolder, new SaveResultsOptions
+            {
+                SaveToDb = true,
+                SaveToFile = true
+            });
+            return DailyGraphsSP500;
+        }
+        
+        public async Task<IEnumerable<IEnumerable<object[][]>>> CollectIntraday(BaseSelector selector, DownloadOptions options)
+        {
+            var result = new List<List<object[][]>>();
+            foreach (DateTime date in options.Dates)
+            {
+                var dayItems = new List<object[][]>();
+                var seconds = Static.SecondsFromDateTime(date);
+                foreach (int symbolId in options.SymbolIds)
+                {
+                    object[][] values = null;
+                    if (options.FromDbIfExists)
+                    {
+                        var dbEntry = _tickRepository.All().FirstOrDefault(p=>p.SymbolId == symbolId && p.Seconds == Static.MidnightSecondsFromSeconds(seconds));
+                        if(dbEntry != null)
+                        {
+                            new Info(selector, symbolId, "  From DB... " + Static.SymbolCodeFromId[dbEntry.SymbolId]);
+                            values = JsonConvert.DeserializeObject<object[][]>(dbEntry.Serialized);
+                        }
+                    }
+                    if (values == null)
+                    {
+                        var dataString = await FetchString(selector, new DownloadOptions()
+                        {
+                            SymbolIds = new int[] { symbolId },
+                            Dates = new DateTime[] { date },
+                            FromFileIfExists = false,
+                            IfFileMissingSave_DailySymbolHistoryFolder = false
+                        });
+                        values = await ProcessString(selector, options, dataString);
+                    }
+                    // var items = (List<IexItem>)JsonConvert.DeserializeObject<List<IexItem>>(dataString);
+                    // var values = items.Where(p => p.marketAverage.HasValue).Where(p => p.marketAverage.Value != -1).Select(p => new object[] { (Int64)(p.date.AddSeconds(ToSeconds(p.minute)).Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds, p.marketAverage.Value }).ToArray();
+                    if (options.IfDbMissingSave)
+                    {
+                       var record = _tickRepository.GetByDayAndSymbolId(symbolId, seconds).FirstOrDefault();
+                        if(record == null)
+                        {
+                            record = new Tick()
+                            {
+                                SymbolId = symbolId,
+                                Samples = values.Count(),
+                                Seconds = Static.MidnightSecondsFromSeconds(seconds),
+                                Serialized = JsonConvert.SerializeObject(values),
+                                Date = date,
+                                Symbol = Static.SymbolCodeFromId[symbolId]
+                            };
+                            await _tickRepository.AddAsync(record);
+                        }
+                        else if (options.UpdateDbIfExists)
+                        {
+
+                        }
+                    }
+                    if (options.BuildDictionary)
+                    {
+                        if (Static.SymbolsIntraday.ContainsKey(symbolId))
+                        {
+                            Static.SymbolsIntraday[symbolId] = values;
+                        }
+                        else
+                        {
+                            Static.SymbolsIntraday.Add(symbolId, values);
+                        }
+                    }
+                    dayItems.Add(values);
+                }
+                result.Add(dayItems);
+            }
+            return result;
+        }
+        public async Task<StockReport> PoolSymbolOnDate(BaseSelector selector, Symbol symbol, DateTime date)
+        {
+            var data = await PoolSymbolTicksOnDate(selector, symbol, date, false);
+            return data;
+        }
+
+        public async Task<List<StockReport>> Pool(BaseSelector selector, bool isControl = false)
+        {
+            if (!isControl)
+            {
+                return null;
+            }
+#if DEBUG
+            if (!isControl)
+            {
+                return null;
+            }
+#endif
+
+            var symbols = _symbolRepository.GetAllActive().AsEnumerable().ToList();
+            List<StockReport> allReports = new List<StockReport>();
+            var startDate = DateTime.UtcNow;
+            foreach (var symbol in symbols)
+            {
+                // Fetch will also alter
+                var reports = await FetchLast(selector, symbol);
+                allReports.AddRange(reports);
+                System.Threading.Thread.Sleep(500);
+            }
+            var endDate = DateTime.UtcNow;
+
+            var endpoint = new StockEndpoint()
+            {
+#if DEBUG
+                Description = isControl ? "IMPORTANT Stock Debug POOL CTRL" : "IMPORTANT Debug POOL CRON took " + (endDate - startDate).TotalSeconds + "seconds!",
+#else
+                Description = isControl ? "IMPORTANT Stock PROD POOL CTRL" : "IMPORTANT PROD POOL CRON took " + (endDate - startDate).TotalSeconds + "seconds!",
+#endif
+                Url = "https://localhost:5000/api/symbol/{symbolId:1}/collect/{date:2020-03-26}",
+                Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Name = "news",
+                Action = JsonConvert.SerializeObject(allReports)
+            };
+            await _endpointRepository.AddAsync(endpoint);
+            return allReports.ToList();
+        }
+
+        public async Task<List<StockReport>> QuickPull(BaseSelector selector, bool isControl = false)
+        {
+#if DEBUG
+            // return null;
+#endif
+            var ints = _alertRepository.GetAllWithUsersAndSymbols().Where(p => p.IsEnabled).Select(p => p.Symbol.SymbolId).ToList();
+            var symbols = _symbolRepository.GetAllActive().Where(p => ints.Contains(p.SymbolId)).AsEnumerable().ToList();
+            List<StockReport> allReports = new List<StockReport>();
+            foreach (var symbol in symbols)
+            {
+                // Fetch will also alter
+                var reports = await FetchLast(selector, symbol);
+                allReports.AddRange(reports);
+                System.Threading.Thread.Sleep(500);
+            }
+
+            var endpoint = new StockEndpoint()
+            {
+#if DEBUG
+                Description = isControl ? "IMPORTANT Stock Debug POOL CTRL" : "IMPORTANT Debug POOL CRON",
+#else
+                Description = isControl ? "IMPORTANT Stock PROD POOL CTRL" : "IMPORTANT PROD POOL CRON",
+#endif
+                Url = "https://localhost:5000/api/symbol/{symbolId:1}/collect/{date:2020-03-26}",
+                Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Name = "news",
+                Action = JsonConvert.SerializeObject(allReports)
+            };
+            await _endpointRepository.AddAsync(endpoint);
+            return allReports.ToList();
+        }
+
+        public async Task<StockReport> Pool(BaseSelector selector, Symbol symbol, DateTime date)
+        {
+            return await PoolSymbolOnDate(selector, symbol, date);
+        }
+
+        public async Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount)
+        {
+            var symbols = _symbolRepository.GetAllActive();
+            foreach (var symbol in symbols)
+            {
+                await FetchLast(selector, symbol, 0);
+            }
+            var dates = new List<DateTime>() { };
+            for (var i = ticksCount / 54 - 1; i >= 0; i--)
+            {
+                dates.Add(DateTime.UtcNow.Date.AddDays(-i));
+            }
+            return await GetBulk(selector, dates);
+        }
+        
         public async Task<StockReport> FetchDate(BaseSelector selector, Symbol symbol, DateTime date, bool save = false, bool fromFile = false)
         {
             var stringData = await FetchString(selector, new DownloadOptions(){
@@ -944,7 +906,6 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
-
         public async Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options)
         {/*
             options.SelectorOptions.FromDateSeconds > 0 ? options.SelectorOptions.FromDateSeconds - options.SelectorOptions.FromDateOffset * 86400
@@ -955,192 +916,7 @@ namespace Ajuro.IEX.Downloader.Services
             }*/
             return null;
         }
-
-
-        public async Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, bool overWrite)
-        {
-            var resultKey = "HistoricalFilesSummary";
-            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
-            if (File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
-            {
-                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
-                return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
-            }
-            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
-            if (result != null && !overWrite)
-            {
-                return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(result.TagString);
-            }
-            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            string[] FilePaths;
-            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_*_*.json");
-            FilePaths = FilePaths.OrderBy(p => p).ToArray();
-
-            int simbsLeft = SP500.Count();
-            foreach (var code in SP500)
-            {
-                simbsLeft--;
-                var symbolId = 0;
-                var symbol = await _symbolRepository.GetByCodeAsync(code);
-                if (symbol == null)
-                {
-                    continue;
-                }
-                symbolId = symbol.SymbolId;
-                var report = new DownloadIntradayReport()
-                {
-                    SymbolId = symbolId,
-                    Code = code,
-                    Details = new List<IntradayDetail>()
-                };
-                var codePaths = FilePaths.Where(p => p.IndexOf("_" + code + "_") > 0);
-                int left = codePaths.Count();
-
-                DateTime from = DateTime.MaxValue;
-                DateTime to = DateTime.MinValue;
-                foreach (var codePath in codePaths)
-                {
-                    left--;
-                    if (simbsLeft > 438)
-                    {
-                        //continue;
-                    }
-                    var dateString = codePath.Substring(codePath.LastIndexOf("_") + 1);
-                    dateString = dateString.Substring(0, dateString.LastIndexOf("."));
-                    dateString = dateString.Substring(6, 2) + "-" + dateString.Substring(4, 2) + "-" + dateString.Substring(0, 4);
-                    DateTime date = DateTime.Parse(dateString);
-                    if (date < from)
-                    {
-                        from = date;
-                    }
-                    if (to < date)
-                    {
-                        to = date;
-                    }
-
-                    var dataString = File.ReadAllText(codePath);
-                    var count = 0;
-                    var itemsLength = 0;
-                    try
-                    {
-                        var items = (List<IexItem>)JsonConvert.DeserializeObject<List<IexItem>>(dataString);
-                        if (items.Count() > 0)
-                        {
-                            count = items.Where(p => p.marketAverage.HasValue && p.marketAverage != 0).Count();
-                        }
-                        itemsLength = items.Count();
-                    }
-                    catch (Exception ex)
-                    {
-                        new Info(selector, -1, ex, string.Empty);
-                        itemsLength = -1;
-                    }
-                    if (left == 0 || left % 50 == 0)
-                    {
-                        Console.WriteLine(simbsLeft + " " + code + ": " + left);
-                    }
-                    report.Details.Add(new IntradayDetail()
-                    {
-                        Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
-                        Samples = count,
-                        Total = itemsLength,
-                        Count = 1,
-
-                    });
-                }
-
-                report.From = from;
-                report.To = to;
-                report.Count = codePaths.Count();
-                reports.Add(report); ;
-            }
-            var success = await SaveResult(selector, result, startTime, resultKey, reports, overWrite, downloaderOptions.SymbolHistoryFolder, new SaveResultsOptions
-            {
-                SaveToDb = true,
-                SaveToFile = true
-            });
-            return reports;
-        }
-        public string[] GetSP500()
-        {
-            return SP500;
-        }
-
-
-        public string[] SP500 = new string[] { "NVR", "BKNG", "ISRG", "ALGN", "PAYC", "GOOG", "GOOGL", "FLT", "AMZN", "BA", "DXCM", "MSCI", "AZO", "MTD", "CTAS", "ZBRA", "MLM", "AVB", "ABMD", "UNH", "NOW", "LRCX", "ESS", "SIVB", "CMG", "SPG", "RCL", "MA", "BLK", "ADP", "SHW", "TFX", "URI", "SNA", "ALLE", "AAPL", "TDG", "RE", "SYK", "ORLY", "LIN", "BRK.B", "HCA", "CDW", "ADSK", "UNP", "EQIX", "AVGO", "IPGP", "ZBH", "CME", "ECL", "SWKS", "ARE", "TIF", "PXD", "KSU", "ADBE", "CI", "LMT", "BIIB", "ANSS", "FIS", "MSI", "WAT", "ANET", "GWW", "TT", "NOC", "TRV", "UHS", "WYNN", "KLAC", "CAT", "CB", "NVDA", "TMO", "SPGI", "V", "HD", "CXO", "DVA", "GPN", "PAYX", "ADS", "ANTM", "PSA", "STZ", "MAA", "PVH", "DE", "HON", "LW", "APH", "MTB", "ACN", "LHX", "PNC", "NFLX", "VAR", "OXY", "CMI", "INTU", "FRT", "AMT", "GD", "BXP", "MDT", "SRE", "ROK", "MMM", "AMGN", "JPM", "EQR", "COO", "RL", "OKE", "APD", "VLO", "AVY", "RTX", "HES", "CVX", "FANG", "AIZ", "FB", "DHR", "IT", "ALB", "DLR", "MSFT", "PSX", "VFC", "WM", "EOG", "CINF", "ITW", "SWK", "ULTA", "DOV", "EL", "HII", "KEYS", "XOM", "EMR", "MCD", "AAP", "COP", "FISV", "HAS", "LNC", "PRU", "DTE", "ODFL", "MCO", "ALL", "CBRE", "EMN", "ROP", "MPC", "ROST", "LYV", "VMC", "UPS", "ETN", "FMC", "SBUX", "EW", "IEX", "UAL", "WAB", "GL", "STE", "SLG", "GRMN", "C", "AXP", "EXPE", "IBM", "OTIS", "FTV", "MCHP", "JBHT", "MAR", "GS", "APA", "PGR", "RSG", "CCL", "FDX", "SYY", "UDR", "OMC", "DHI", "WELL", "TXN", "NCLH", "PPG", "KMX", "NTAP", "AME", "MMC", "WLTW", "NSC", "KSS", "NTRS", "BR", "LEN", "CMA", "BBY", "L", "IR", "HSIC", "QCOM", "ETR", "MU", "NEE", "WDC", "AMP", "VNO", "WRB", "TFC", "CRM", "TJX", "PFG", "HIG", "XYL", "DFS", "PLD", "HFC", "BWA", "USB", "LOW", "PG", "QRVO", "PCAR", "FFIV", "AJG", "CTSH", "TEL", "ADI", "AIV", "AON", "APTV", "FRC", "TXT", "INFO", "XRAY", "IFF", "MCK", "O", "VTR", "CPRT", "RJF", "AMAT", "GPC", "RHI", "BF.B", "ICE", "HSY", "FLS", "NDAQ", "WHR", "GLW", "PKG", "TROW", "EXR", "DVN", "AAL", "COF", "PEP", "BK", "CVS", "EIX", "JKHY", "DAL", "PHM", "DISCA", "STT", "VRSK", "SLB", "CL", "JCI", "CERN", "HWM", "IDXX", "ABT", "AEE", "PEAK", "TGT", "FBHS", "KMB", "PNW", "PEG", "ALXN", "YUM", "DISCK", "J", "GM", "WFC", "AOS", "NKE", "BSX", "MET", "PYPL", "ADM", "EXC", "LEG", "PKI", "ZION", "INTC", "PWR", "WRK", "HAL", "CE", "BAC", "TTWO", "MNST", "COST", "JWN", "SEE", "NRG", "NOV", "DOW", "MDLZ", "AFL", "IP", "SYF", "MO", "KO", "DD", "AIG", "TWTR", "WBA", "EA", "SCHW", "DIS", "KHC", "ORCL", "WY", "NBL", "AEP", "BEN", "UNM", "MRO", "DISH", "DUK", "VRSN", "WU", "CSX", "KEY", "ES", "REG", "FTI", "HBI", "CF", "CSCO", "T", "FAST", "TMUS", "HST", "ETFC", "CCI", "HPQ", "NWL", "LYB", "FE", "K", "KIM", "FTNT", "CARR", "TPR", "AWK", "HLT", "IVZ", "TSN", "MS", "NUE", "MAS", "LB", "ABBV", "CMCSA", "PBCT", "CFG", "CAH", "FITB", "XRX", "F", "PNR", "CHRW", "IPG", "CNC", "PM", "MRK", "MXIM", "VIAC", "UAA", "DRE", "FCX", "CMS", "EVRG", "IRM", "MHK", "HPE", "LVS", "BKR", "JNJ", "BAX", "LNT", "UA", "XLNX", "SNPS", "VZ", "HBAN", "ED", "SO", "KMI", "ZTS", "CTVA", "AMD", "AES", "NI", "BMY", "COG", "EFX", "HOG", "WMB", "RF", "DXC", "ALK", "HRB", "PRGO", "AMCR", "STX", "WST", "FOXA", "ATO", "EXPD", "FOX", "NLSN", "WEC", "MOS", "COTY", "GIS", "XEL", "CTL", "JNPR", "CNP", "NWS", "GPS", "NWSA", "GE", "CDNS", "CAG", "HOLX", "TAP", "LDOS", "MKC", "RMD", "HRL", "PPL", "MGM", "PFE", "MYL", "NLOK", "LUV", "ROL", "LKQ", "DG", "TSCO", "INCY", "DLTR", "ATVI", "DRI", "ABC", "CHD", "FLIR", "EBAY", "WMT", "CPB", "KR", "D", "A", "CTXS", "GILD", "LH", "NEM", "PH", "BLL", "LLY", "BDX", "REGN", "IQV", "SJM", "HUM", "DGX", "AKAM", "CBOE", "SBAC", "ILMN", "MKTX", "DPZ", "CLX", "VRTX", "CHTR" };
-
-        public string GetResultFromFile(string backupFolder, string key)
-        {
-            if(File.Exists(backupFolder + "\\" + key + ".json"))
-            {
-                return File.ReadAllText(backupFolder + "\\" + key + ".json");
-            }
-            return null;
-        }
-        public async Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder, SaveResultsOptions saveResultsOptions)
-        {
-            if (existentResult == null)
-            {
-                existentResult = new Result(selector)
-                {
-                    Key = key,
-                    TagString = JsonConvert.SerializeObject(content),
-                    EndTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    StartTime = startTime,
-                    // User = currentUser
-                };
-                try
-                {
-                    if (saveResultsOptions.SaveToFile)
-                    {
-                        File.WriteAllText(backupFolder + "\\" + key + ".json", existentResult.TagString);
-                    }
-                    if(saveResultsOptions.SaveToDb)
-                    {
-                        try
-                        {
-                            await _resultRepository.AddAsync(existentResult);
-                        }
-                        catch (Exception ex)
-                        {
-                            new Info(selector, -1, ex, "Duplicate result");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    new Info(selector, -1, ex, string.Empty);
-                    File.WriteAllText(backupFolder + "\\" + key + ".json", existentResult.TagString);
-                }
-            }
-            else
-            {
-                if (replaceIfExists)
-                {
-                    existentResult.TagString = JsonConvert.SerializeObject(content);
-                    existentResult.EndTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                    existentResult.StartTime = startTime;
-                    try
-                    {
-                        if (saveResultsOptions.SaveToFile)
-                        {
-                            File.WriteAllText(backupFolder + "\\" + key + ".json", JsonConvert.SerializeObject(content));
-                        }
-                        if(saveResultsOptions.SaveToDb)
-                        {
-                            await _resultRepository.UpdateAsync(existentResult);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        new Info(selector, -1, ex, string.Empty);
-                        File.WriteAllText(backupFolder + "\\" + key + ".json", JsonConvert.SerializeObject(content));
-                    }
-                }
-            }
-            return true;
-        }
-
+        
         /// <summary>
         /// Use this link: https://localhost:5000/stock/collect/4
         /// </summary>
@@ -1163,140 +939,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return reports;
         }
-
-        public async Task<StockReport> PoolSymbolOnDate(BaseSelector selector, Symbol symbol, DateTime date)
-        {
-            var data = await PoolSymbolTicksOnDate(selector, symbol, date, false);
-            return data;
-        }
-
-        public async Task<List<StockReport>> Pool(BaseSelector selector, bool isControl = false)
-        {
-            if (!isControl)
-            {
-                return null;
-            }
-#if DEBUG
-            if (!isControl)
-            {
-                return null;
-            }
-#endif
-
-            var symbols = _symbolRepository.GetAllActive().AsEnumerable().ToList();
-            List<StockReport> allReports = new List<StockReport>();
-            var startDate = DateTime.UtcNow;
-            foreach (var symbol in symbols)
-            {
-                // Fetch will also alter
-                var reports = await FetchLast(selector, symbol);
-                allReports.AddRange(reports);
-                System.Threading.Thread.Sleep(500);
-            }
-            var endDate = DateTime.UtcNow;
-
-            var endpoint = new StockEndpoint()
-            {
-#if DEBUG
-                Description = isControl ? "IMPORTANT Stock Debug POOL CTRL" : "IMPORTANT Debug POOL CRON took " + (endDate - startDate).TotalSeconds + "seconds!",
-#else
-                Description = isControl ? "IMPORTANT Stock PROD POOL CTRL" : "IMPORTANT PROD POOL CRON took " + (endDate - startDate).TotalSeconds + "seconds!",
-#endif
-                Url = "https://localhost:5000/api/symbol/{symbolId:1}/collect/{date:2020-03-26}",
-                Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                Name = "news",
-                Action = JsonConvert.SerializeObject(allReports)
-            };
-            await _endpointRepository.AddAsync(endpoint);
-            return allReports.ToList();
-        }
-
-        public async Task<List<StockReport>> QuickPull(BaseSelector selector, bool isControl = false)
-        {
-#if DEBUG
-            // return null;
-#endif
-            var ints = _alertRepository.GetAllWithUsersAndSymbols().Where(p => p.IsEnabled).Select(p => p.Symbol.SymbolId).ToList();
-            var symbols = _symbolRepository.GetAllActive().Where(p => ints.Contains(p.SymbolId)).AsEnumerable().ToList();
-            List<StockReport> allReports = new List<StockReport>();
-            foreach (var symbol in symbols)
-            {
-                // Fetch will also alter
-                var reports = await FetchLast(selector, symbol);
-                allReports.AddRange(reports);
-                System.Threading.Thread.Sleep(500);
-            }
-
-            var endpoint = new StockEndpoint()
-            {
-#if DEBUG
-                Description = isControl ? "IMPORTANT Stock Debug POOL CTRL" : "IMPORTANT Debug POOL CRON",
-#else
-                Description = isControl ? "IMPORTANT Stock PROD POOL CTRL" : "IMPORTANT PROD POOL CRON",
-#endif
-                Url = "https://localhost:5000/api/symbol/{symbolId:1}/collect/{date:2020-03-26}",
-                Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                Name = "news",
-                Action = JsonConvert.SerializeObject(allReports)
-            };
-            await _endpointRepository.AddAsync(endpoint);
-            return allReports.ToList();
-        }
-
-        public async Task<StockReport> Pool(BaseSelector selector, Symbol symbol, DateTime date)
-        {
-            return await PoolSymbolOnDate(selector, symbol, date);
-        }
-
-        public async Task<List<StockResult>> GetLasts(BaseSelector selector, int ticksCount)
-        {
-            var symbols = _symbolRepository.GetAllActive();
-            foreach (var symbol in symbols)
-            {
-                await FetchLast(selector, symbol, 0);
-            }
-            var dates = new List<DateTime>() { };
-            for (var i = ticksCount / 54 - 1; i >= 0; i--)
-            {
-                dates.Add(DateTime.UtcNow.Date.AddDays(-i));
-            }
-            return await GetBulk(selector, dates);
-        }
-
-        public IQueryable<Daily> GetDailyRecordsByReportingOptions(ReportingOptions reportingOptions)
-        {
-            var items = _dailyRepository.All().Where(p =>
-                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol.Code == reportingOptions.Code) &&
-                (reportingOptions.SymbolId == 0 || p.Symbol.SymbolId == reportingOptions.SymbolId)
-            );
-            if (reportingOptions.StartingAt > DateTime.MinValue)
-            {
-                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
-            }
-            if (reportingOptions.Take > 0)
-            {
-                items = items.Take(reportingOptions.Take);
-            }
-            return items;
-        }
-
-        public IQueryable<Tick> GetIntradayRecordsByReportingOptions(ReportingOptions reportingOptions)
-        {
-            var items = _tickRepository.All().Where(p =>
-                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol == reportingOptions.Code) &&
-                (reportingOptions.SymbolId == 0 || p.SymbolId == reportingOptions.SymbolId)
-            );
-            if (reportingOptions.StartingAt > DateTime.MinValue)
-            {
-                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
-            }
-            if (reportingOptions.Take > 0)
-            {
-                items = items.Take(reportingOptions.Take);
-            }
-            return items;
-        }
-
+        
         public async Task<List<StockResult>> GetLastDays(BaseSelector selector, int days)
         {
             var dates = new List<DateTime>() { };
@@ -1390,7 +1033,442 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return 0;
         }
+        
+        public async Task<Tick> UpsertTicks(BaseSelector selector, Symbol symbol, DateTime date, object[][] ticksArray)
+        {
+            long seconds = 0;
+            if (date > DateTime.MinValue)
+            {
+                seconds = (new DateTimeOffset(date.Date)).ToUnixTimeSeconds();
+            }
 
+            var existentTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == seconds && p.SymbolId == symbol.SymbolId);
+            // if (date.DayOfYear != DateTime.UtcNow.DayOfYear)
+            // {
+            if (existentTick != null)
+            {
+                // tickExists = true;
+                existentTick.Serialized = JsonConvert.SerializeObject(ticksArray);
+                existentTick.Samples = ticksArray.Length;
+                existentTick.Date = date;
+                existentTick.Seconds = seconds;
+                // existentTick.SymbolId = symbol.SymbolId;
+                await _tickRepository.UpdateAsync(existentTick);
+            }
+            else
+            {
+                existentTick = new Tick()
+                {
+                    Date = date,
+                    Seconds = seconds,
+                    Serialized = JsonConvert.SerializeObject(ticksArray),
+                    Samples = ticksArray.Length,
+                    Symbol = symbol.Code,
+                    SymbolId = symbol.SymbolId,
+                };
+                await _tickRepository.AddAsync(existentTick);
+            }
+            return existentTick;
+        }
+
+
+        public async Task<string> GetJsonStream(string url)
+        {
+            HttpClient client = new HttpClient();
+            HttpResponseMessage response = await client.GetAsync(url);
+            string content = await response.Content.ReadAsStringAsync();
+            return content;
+        }
+        
+        #endregion
+        
+        #region CACHING
+        
+        public async Task<List<Tick>> GetAllHistoricalFromDb(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
+        {
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+            var resultKey = "AllHistoricalDictionary";
+
+            if (File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
+            {
+                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
+                return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(fileContent);
+            }
+            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
+            if (result != null && !overWrite)
+            {
+                return (List<Tick>)JsonConvert.DeserializeObject<List<Tick>>(result.TagString);
+            }
+
+            var symbols = _symbolRepository.GetAllActive().ToList();
+            var aggregatedTicks = new List<Tick>();
+            for (int symi = 0; symi < symbols.Count; symi++)
+            {
+                if (!Static.SP500.Contains(symbols[symi].Code))
+                {
+                    continue;
+                }
+
+                var aggregatedTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == 0 && p.SymbolId == symbols[symi].SymbolId);
+                if (aggregatedTick == null)
+                {
+                    var tickArray = await ProcessString(selector, new DownloadOptions(){
+                        SymbolIds = new int[] { symbols[symi].SymbolId },
+                        Dates = new DateTime[] { DateTime.MinValue },
+                        FromFileIfExists = true,
+                        ReplaceFileIfExists = overwite,
+                        SaveOnly = true
+                    });
+
+                    aggregatedTick = await UpsertTicks(selector, symbols[symi], DateTime.MinValue, tickArray);
+                }
+                aggregatedTicks.Add(aggregatedTick);
+
+                if (saveToFile)
+                {
+                    var success = await SaveResult(selector, result, startTime, resultKey, aggregatedTicks, false, downloaderOptions.LargeResultsFolder, new SaveResultsOptions()
+                    {
+                        SaveToDb = true,
+                        SaveToFile = true
+                    });
+                }
+            }
+            return aggregatedTicks;
+        }
+
+        public async Task<Dictionary<int, object[][]>> GetAllHistoricalFromFiles(BaseSelector selector, bool overwite, bool saveToFile = true, bool saveToDb = false, bool overWrite = false)
+        {
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            overWrite = false;
+
+            var resultKey = "AllHistoricalDictionary";
+            Result result = null;
+            if (!overWrite && File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
+            {
+                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
+                result = (Result)JsonConvert.DeserializeObject<Result>(fileContent);
+                return (Dictionary<int, object[][]>)result.Tag;
+            }
+
+            Dictionary<int, object[][]> priceDictionary = new Dictionary<int, object[][]>();
+            var symbols = _symbolRepository.GetAllActive().ToList();
+            for (int symi = 0; symi < symbols.Count; symi++)
+            {
+                if (!Static.SP500.Contains(symbols[symi].Code))
+                {
+                    continue;
+                }
+                if(symbols[symi].Code == "KO")
+                {
+
+                }
+
+                var tickArray = await ProcessString(selector, new DownloadOptions()
+                {
+                    SymbolIds = new int[] { symbols[symi].SymbolId },
+                    Dates = new DateTime[] { DateTime.MinValue },
+                    FromFileIfExists = true,
+                    SaveOnly = false,
+                    ReplaceFileIfExists = overwite
+                    });
+                try
+                {
+                    priceDictionary.Add(symbols[symi].SymbolId, tickArray);
+                }
+                catch (Exception ex)
+                {
+                    new Info(selector, -1, ex, string.Empty);
+                }
+            }
+            if (saveToFile)
+            {
+                var success = await SaveResult(selector, result, startTime, resultKey, priceDictionary, false, downloaderOptions.LargeResultsFolder, new SaveResultsOptions()
+                {
+                    SaveToDb = false,
+                    SaveToFile = true
+                });
+            }
+            return (Dictionary<int, object[][]>)result.Tag;
+        }
+        
+        #endregion
+        
+        #region REPORTING
+        
+        
+
+        public async Task<List<DownloadIntradayReport>> BuildDownloadSummary(BaseSelector selector, ReportingOptions reportingOptions, bool overWrite)
+        {
+            var resultKey = "HistoricalFilesSummary" + (reportingOptions.StartingAt > DateTime.MinValue ? "_" + reportingOptions.StartingAt.ToShortDateString() : string.Empty);
+            
+            // Try to recover it from disk
+            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
+            if (File.Exists(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json"))
+            {
+                var fileContent = File.ReadAllText(downloaderOptions.LargeResultsFolder + "\\" + resultKey + ".json");
+                return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
+            }
+            
+            // Try to recover it from DB
+            var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault();
+            if (result != null && !overWrite)
+            {
+                return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(result.TagString);
+            }
+            
+            // Preparing for action
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            string[] FilePaths;
+            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_*_*.json");
+            FilePaths = FilePaths.OrderBy(p => p).ToArray();
+
+            int simbsLeft = Static.SP500.Count();
+            foreach (var code in Static.SP500)
+            {
+                simbsLeft--;
+                var symbolId = 0;
+                var symbol = await _symbolRepository.GetByCodeAsync(code);
+                if (symbol == null)
+                {
+                    continue;
+                }
+                symbolId = symbol.SymbolId;
+                var report = new DownloadIntradayReport()
+                {
+                    SymbolId = symbolId,
+                    Code = code,
+                    Details = new List<IntradayDetail>()
+                };
+                var codePaths = FilePaths.Where(p => p.IndexOf("_" + code + "_") > 0);
+                int left = codePaths.Count();
+
+                DateTime from = DateTime.MaxValue;
+                DateTime to = DateTime.MinValue;
+                foreach (var codePath in codePaths)
+                {
+                    left--;
+                    if (simbsLeft > 438)
+                    {
+                        //continue;
+                    }
+                    var dateString = codePath.Substring(codePath.LastIndexOf("_") + 1);
+                    dateString = dateString.Substring(0, dateString.LastIndexOf("."));
+                    dateString = dateString.Substring(6, 2) + "-" + dateString.Substring(4, 2) + "-" + dateString.Substring(0, 4);
+                    DateTime date = DateTime.Parse(dateString);
+                    if (date < from)
+                    {
+                        from = date;
+                    }
+                    if (to < date)
+                    {
+                        to = date;
+                    }
+
+                    var dataString = File.ReadAllText(codePath);
+                    var count = 0;
+                    var itemsLength = 0;
+                    try
+                    {
+                        var items = (List<IexItem>)JsonConvert.DeserializeObject<List<IexItem>>(dataString);
+                        if (items.Count() > 0)
+                        {
+                            count = items.Where(p => p.marketAverage.HasValue && p.marketAverage != 0).Count();
+                        }
+                        itemsLength = items.Count();
+                    }
+                    catch (Exception ex)
+                    {
+                        new Info(selector, -1, ex, string.Empty);
+                        itemsLength = -1;
+                    }
+                    if (left == 0 || left % 50 == 0)
+                    {
+                        Console.WriteLine(simbsLeft + " " + code + ": " + left);
+                    }
+                    report.Details.Add(new IntradayDetail()
+                    {
+                        Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
+                        Samples = count,
+                        Total = itemsLength,
+                        Count = 1,
+
+                    });
+                }
+
+                // Aggregate daily results
+                report.From = from;
+                report.To = to;
+                report.Count = codePaths.Count();
+                reports.Add(report); ;
+            }
+            
+            // Saving action results
+            var success = await SaveResult(selector, result, startTime, resultKey, reports, overWrite, downloaderOptions.SymbolHistoryFolder, new SaveResultsOptions
+            {
+                SaveToDb = true,
+                SaveToFile = true
+            });
+            return reports;
+        }
+        public async Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector)
+        {
+            List<FileResourceGroup> result = new List<FileResourceGroup>();
+
+            string[] dailySymbolHistoryFiles;
+            dailySymbolHistoryFiles = new string[] { };// Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder);
+            dailySymbolHistoryFiles = dailySymbolHistoryFiles.OrderBy(p => p).ToArray();
+
+            string[] dailyGraphsFiles;
+            dailyGraphsFiles = Directory.GetFiles(downloaderOptions.DailyGraphsFolder);
+            dailyGraphsFiles = dailyGraphsFiles.OrderBy(p => p).ToArray();
+
+            string[] symbolHistoryFiles;
+            symbolHistoryFiles = Directory.GetFiles(downloaderOptions.SymbolHistoryFolder);
+            symbolHistoryFiles = symbolHistoryFiles.OrderBy(p => p).ToArray();
+
+            string[] largeResultsFiles;
+            largeResultsFiles = Directory.GetFiles(downloaderOptions.LargeResultsFolder);
+            largeResultsFiles = largeResultsFiles.OrderBy(p => p).ToArray();
+
+            foreach (var path in dailySymbolHistoryFiles)
+            {
+                var fileInfo = new FileInfo(path);
+                result.Add(new FileResourceGroup
+                {
+                    Category = "DailySymbolHistory",
+                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
+                    Name = fileInfo.Name,
+                    Length = fileInfo.Length,
+                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
+                });
+            }
+
+            foreach (var path in dailyGraphsFiles)
+            {
+                var fileInfo = new FileInfo(path);
+                result.Add(new FileResourceGroup
+                {
+                    Category = "DailySymbolHistory",
+                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
+                    Name = fileInfo.Name,
+                    Length = fileInfo.Length,
+                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
+                });
+            }
+
+            foreach (var path in symbolHistoryFiles.Take(50))
+            {
+                var fileInfo = new FileInfo(path);
+                result.Add(new FileResourceGroup
+                {
+                    Category = "DailySymbolHistory",
+                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
+                    Name = fileInfo.Name,
+                    Length = fileInfo.Length,
+                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
+                });
+            }
+
+            foreach (var path in largeResultsFiles)
+            {
+                var fileInfo = new FileInfo(path);
+                result.Add(new FileResourceGroup
+                {
+                    Category = "DailySymbolHistory",
+                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
+                    Name = fileInfo.Name,
+                    Length = fileInfo.Length,
+                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
+                });
+            }
+            return result;
+        }
+
+        public List<DownloadIntradayReport> GetFileRecordsByReportingOptions(ReportingOptions reportingOptions)
+        {
+            string[] FilePaths;
+            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_*_*.json");
+            FilePaths = FilePaths.OrderBy(p => p).ToArray();
+            return null;
+        }
+
+        public IQueryable<Daily> GetDailyRecordsByReportingOptions(ReportingOptions reportingOptions)
+        {
+            var items = _dailyRepository.All().Where(p =>
+                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol.Code == reportingOptions.Code) &&
+                (reportingOptions.SymbolId == 0 || p.Symbol.SymbolId == reportingOptions.SymbolId)
+            );
+            if (reportingOptions.StartingAt > DateTime.MinValue)
+            {
+                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
+            }
+            if (reportingOptions.Take > 0)
+            {
+                items = items.Take(reportingOptions.Take);
+            }
+            return items;
+        }
+
+        public IQueryable<Tick> GetIntradayRecordsByReportingOptions(ReportingOptions reportingOptions)
+        {
+            var items = _tickRepository.All().Where(p =>
+                (string.IsNullOrEmpty(reportingOptions.Code) || p.Symbol == reportingOptions.Code) &&
+                (reportingOptions.SymbolId == 0 || p.SymbolId == reportingOptions.SymbolId)
+            );
+            if (reportingOptions.StartingAt > DateTime.MinValue)
+            {
+                items = items.Where(p=>p.Date > reportingOptions.StartingAt);
+            }
+            if (reportingOptions.Take > 0)
+            {
+                items = items.Take(reportingOptions.Take);
+            }
+            return items;
+        }
+        
+        #endregion REPORTING
+        
+        #region FRAGMENTS
+        
+
+
+        public async Task<string> CreateAndSaveSegments(BaseSelector selector, ResultSelector resultSelector)
+        {
+            var TagString = resultSelector.TagString;
+            if (string.IsNullOrEmpty(TagString))
+            {
+                StringBuilder sb = new StringBuilder();
+                var samples = await CreateFragmentsFromDb(selector, resultSelector);
+                foreach (var sample in samples)
+                {
+                    sb.AppendLine(sample.ToString());
+                }
+                TagString = sb.ToString();
+            }
+
+            resultSelector.TagString = null;
+            var key = $"Fragments_id_{ resultSelector.SymbolId }_len_{ resultSelector.Length }_len_{ resultSelector.Lost }_len_{ resultSelector.Margin }_len_{ resultSelector.Save }";
+            var existentResult = _resultRepository.GetAllByKey(key).FirstOrDefault();
+            if (existentResult != null)
+            {
+                if (resultSelector.Replace)
+                {
+                    existentResult.TagString = TagString;
+                    var s = _resultRepository.UpdateAsync(existentResult).Result;
+                }
+            }
+            else
+            {
+                await _resultRepository.AddAsync(new Result(selector)
+                {
+                    TagString = TagString,
+                    Key = key,
+                    User = null
+                });
+            }
+            return resultSelector.TagString;
+        }
 
         // Skip this for now.
         public async Task<IEnumerable<Sample>> CreateFragmentsFromFiles(BaseSelector selector, ResultSelector resultSelector)
@@ -1624,60 +1702,9 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return samples;
         }
-        public async Task<Tick> UpsertTicks(BaseSelector selector, Symbol symbol, DateTime date, object[][] ticksArray)
-        {
-            long seconds = 0;
-            if (date > DateTime.MinValue)
-            {
-                seconds = (new DateTimeOffset(date.Date)).ToUnixTimeSeconds();
-            }
-
-            var existentTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == seconds && p.SymbolId == symbol.SymbolId);
-            // if (date.DayOfYear != DateTime.UtcNow.DayOfYear)
-            // {
-            if (existentTick != null)
-            {
-                // tickExists = true;
-                existentTick.Serialized = JsonConvert.SerializeObject(ticksArray);
-                existentTick.Samples = ticksArray.Length;
-                existentTick.Date = date;
-                existentTick.Seconds = seconds;
-                // existentTick.SymbolId = symbol.SymbolId;
-                await _tickRepository.UpdateAsync(existentTick);
-            }
-            else
-            {
-                existentTick = new Tick()
-                {
-                    Date = date,
-                    Seconds = seconds,
-                    Serialized = JsonConvert.SerializeObject(ticksArray),
-                    Samples = ticksArray.Length,
-                    Symbol = symbol.Code,
-                    SymbolId = symbol.SymbolId,
-                };
-                await _tickRepository.AddAsync(existentTick);
-            }
-            return existentTick;
-        }
-
-
-        public async Task<string> GetJsonStream(string url)
-        {
-            HttpClient client = new HttpClient();
-            HttpResponseMessage response = await client.GetAsync(url);
-            string content = await response.Content.ReadAsStringAsync();
-            return content;
-        }
-
-        public int ToSeconds(string minutes)
-        {
-            if (minutes.IndexOf(':') > 0)
-            {
-                return int.Parse(minutes.Split(':')[0]) * 60 * 60 + int.Parse(minutes.Split(':')[1]) * 60;
-            }
-            return 0;
-        }
+        
+        #endregion
+        
     }
 
     public class FileResourceGroup
