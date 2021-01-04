@@ -67,7 +67,9 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-    [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
+        #region FRAGMENTS
+
+        [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
     public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost, double save, int margin, int skip, int take)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -90,7 +92,9 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-    [HttpGet("api/[controller]/{symbolId}/collect")]
+        #endregion
+
+        [HttpGet("api/[controller]/{symbolId}/collect")]
     public async Task<JsonResult> GetSymbol(int symbolId)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -112,28 +116,63 @@ namespace Ajuro.Security.Controllers.v3
       return Content(JsonConvert.SerializeObject(reports), "application/json");
     }
 
+        #region REPORTING
+        /* ===== --- ===== --- ===== */
 
-    /* ===== --- ===== --- ===== */
-
-    /*static*/
-    DateTime _lastDate = DateTime.MinValue;
+        /*static*/
+        DateTime _lastDate = DateTime.MinValue;
     /*static*/
     int _lastSymbol;
 
-    [HttpGet("code/{code}/from/{from}/take/{take}/file/downloads")]
-    public async Task<object> CheckDownloadCompletion(DateTime from, int take, string code)
-    {
-      var selector = new BaseSelector(CommandSource.Endpoint);
-      ReportingOptions reportingOptions = new ReportingOptions()
-      {
-        Take = take,
-        StartingAt = from,
-        Code = code == "any" ? null: code
-      };
-      return await _downloaderService.BuildDownloadSummary(selector, reportingOptions, false);
-    }
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/list/files/content")]
+        public async Task<object> ListFiles_WithContent_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                Code = code,
+            };
+            return await _downloaderService.ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, reportingOptions);
+        }
 
-    [HttpGet("{daysBefore}/database/downloads")]
+        [HttpGet("source/{source}/count/files")]
+        public async Task<object> CountFiles(DateTime fromDate, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+            };
+            return await _downloaderService.CountFiles(selector, reportingOptions);
+        }
+
+        [HttpGet("from/{fromDate}/source/{source}/count/files")]
+        public async Task<object> CountFiles_PerCode_OnTheGivenMonth(DateTime fromDate, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+            };
+            return await _downloaderService.CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+        }
+
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/count/intradays")]
+        public async Task<object> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                Take = take,
+                FromDate = fromDate,
+                Code = code == "any" ? null : code
+            };
+            return await _downloaderService.CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, reportingOptions, true);
+        }
+
+        [HttpGet("{daysBefore}/database/downloads")]
     public async Task<object> GetCompletion([FromQuery] string action, int daysBefore)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -234,10 +273,11 @@ namespace Ajuro.Security.Controllers.v3
       return tl;
     }
 
+        #endregion
 
 #if DEBUG
-    
-    [HttpGet("aggregate/fromDb/{replace}")]
+
+        [HttpGet("aggregate/fromDb/{replace}")]
     public async Task<List<Tick>> AggregateFromDb(bool fromFiles, bool replace)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
