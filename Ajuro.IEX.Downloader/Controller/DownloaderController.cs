@@ -106,15 +106,81 @@ namespace Ajuro.Security.Controllers.v3
         return Json(result);
       }
       return Json(null);
-    }
+        }
 
-    [HttpPost("download")]
-    public async Task<IActionResult> Download(DownloadOptions options)
-    {
-      var selector = new BaseSelector(CommandSource.Endpoint);
-      var reports = await _downloaderService.Download(selector, options);
-      return Content(JsonConvert.SerializeObject(reports), "application/json");
-    }
+        [HttpPost("download")]
+        public async Task<IActionResult> Download(DownloadOptions options)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            var reports = await _downloaderService.Download(selector, options);
+            return Content(JsonConvert.SerializeObject(reports), "application/json");
+        }
+
+        [HttpGet("code/{codes}/from/{from}/take/{take}/source/{source}/action/{action}/allForMonth")]
+        public async Task<IActionResult> AllForMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.AllForMonth);
+            return Json(results);
+        }
+
+        [HttpGet("code/{codes}/from/{from}/take/{take}/source/{source}/action/{action}/allForDay")]
+        public async Task<IActionResult> AllForDay(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.AllForDay);
+            return Json(results);
+        }
+
+        [HttpGet("code/{codes}/from/{from}/take/{take}/source/{source}/action/{action}/codeForMonth")]
+        public async Task<IActionResult> CodeForMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                Code = code,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForMonth);
+            return Json(results);
+        }
+
+        [HttpGet("code/{codes}/from/{from}/take/{take}/source/{source}/action/{action}/codeForDay")]
+        public async Task<IActionResult> CodeForDay(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                Code = code,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForDay);
+            return Json(results);
+        }
+
+        [HttpGet("code/{codes}/from/{from}/take/{take}/source/{source}/action/{action}/codeForMissingDays")]
+        public async Task<IActionResult> CodeForMissingDays(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                Code = code,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForDay);
+            return Json(results);
+        }
 
         #region REPORTING
         /* ===== --- ===== --- ===== */
@@ -318,7 +384,7 @@ namespace Ajuro.Security.Controllers.v3
 
       var left = days;
       List<StockReport> reports = new List<StockReport>();
-      var symbols = _symbolRepository.GetAll().Where(p => p.Active).ToList();
+      var symbols = _symbolRepository.GetAll().Where(symbol => Static.SP500.Contains(symbol.Code)).ToList();
       int symbolIndex = symbols.Count;
       if (fromFiles < 1)
       {

@@ -54,11 +54,17 @@ namespace Ajuro.IEX.Downloader.Services
         Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions, bool overWrite);
-        
+
+        #endregion
+
+        #region HISTORICAL DOWNLOAD
+
+        Task<List<DownloadReport>> Download(BaseSelector selector, ReportingOptions options, ActionRange range);
+
         #endregion
 
         #region COLLECT DATA
-        
+
         Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options);
         Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date);
         Task<int> FetchToday(BaseSelector selector);

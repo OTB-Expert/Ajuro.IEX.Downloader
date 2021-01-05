@@ -347,7 +347,7 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 return DailyGraphsSP500;
             }
-            var triggerSymbolIds = Static.Triggers.Select(p => p.SymbolId).Where(symbolId => Static.SymbolCodeFromId.ContainsKey(symbolId) && _userRepository.GetSP500().Any(s => s == Static.SymbolCodeFromId[symbolId])).Distinct();
+            var triggerSymbolIds = Static.Triggers.Select(p => p.SymbolId).Where(symbolId => Static.SymbolCodeFromId.ContainsKey(symbolId) && Static.SP500.Any(s => s == Static.SymbolCodeFromId[symbolId])).Distinct();
             var triggerSymbolIdsCount = triggerSymbolIds.Count();
             var count = triggerSymbolIds.Count();
             var left = count;
@@ -355,7 +355,7 @@ namespace Ajuro.IEX.Downloader.Services
             var uncachedSymbolIdsCount = uncachedSymbolIds.Count();
             var downloadedSymbolTicks = _tickRepository.All().Where(p => uncachedSymbolIds.Contains(p.SymbolId) && p.Seconds == Static.MidnightSecondsFromSeconds(Static.SecondsFromDateTime(date)));
             var downloadedSymbolTicksCount = downloadedSymbolTicks.Count();
-            foreach (var symbolId in triggerSymbolIds)
+            foreach (var symbolId in Static.SymbolIDs)
             {
                 left--;
                 try
@@ -765,6 +765,16 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
+        public async Task<List<DownloadReport>> Download(BaseSelector selector, ReportingOptions options, ActionRange action)
+        {/*
+            options.SelectorOptions.FromDateSeconds > 0 ? options.SelectorOptions.FromDateSeconds - options.SelectorOptions.FromDateOffset * 86400
+            var dates = new List<DateTime>() { };
+            for (var i = days - 1; i >= 0; i--)
+            {
+                dates.Add(DateTime.UtcNow.Date.AddDays(-i));
+            }*/
+            return null;
+        }
         public async Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options)
         {/*
             options.SelectorOptions.FromDateSeconds > 0 ? options.SelectorOptions.FromDateSeconds - options.SelectorOptions.FromDateOffset * 86400
@@ -775,7 +785,7 @@ namespace Ajuro.IEX.Downloader.Services
             }*/
             return null;
         }
-        
+
         /// <summary>
         /// Use this link: https://localhost:5000/stock/collect/4
         /// </summary>
