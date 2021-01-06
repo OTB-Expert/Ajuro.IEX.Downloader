@@ -141,6 +141,20 @@ namespace Ajuro.IEX.Downloader.Services
 
     public class DownloaderOptions
     {
+        public DownloaderOptions()
+        {
+ #if Linux
+            DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
+            SymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/SymbolHistory";
+            DailyGraphsFolder = @"/home/florin/PRO/Test3/Data/Historical/DailyGraphs";
+            LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
+#else
+            DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
+            SymbolHistoryFolder = @"C:\PRO\EasyStockData\SymbolHistory";
+            DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs";
+            LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults";
+#endif
+        }
         public string IEX_Token { get; set; }
         public string DailyGraphsFolder { get; set; }
         public string DailySymbolHistoryFolder { get; set; }

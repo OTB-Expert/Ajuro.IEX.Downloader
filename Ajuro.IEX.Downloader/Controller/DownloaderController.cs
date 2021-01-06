@@ -52,11 +52,6 @@ namespace Ajuro.Security.Controllers.v3
 
       _downloaderService.SetOptions(new DownloaderOptions()
       {
-        IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74",
-        DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs",
-        DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory",
-        SymbolHistoryFolder = @"C:\PRO\EasyStockData\SymbolHistory",
-        LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults",
         ReleaseConfiguration_Allow_WriteFiles = false,
         DebugConfiguration_Allow_WriteFiles = false,
         ReleaseConfiguration_Allow_OverwriteFiles = false,
