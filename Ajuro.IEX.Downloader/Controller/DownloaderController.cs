@@ -62,7 +62,9 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-    [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
+        #region FRAGMENTS
+
+        [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
     public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost, double save, int margin, int skip, int take)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -85,7 +87,9 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-    [HttpGet("api/[controller]/{symbolId}/collect")]
+        #endregion
+
+        [HttpGet("api/[controller]/{symbolId}/collect")]
     public async Task<JsonResult> GetSymbol(int symbolId)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -97,38 +101,149 @@ namespace Ajuro.Security.Controllers.v3
         return Json(result);
       }
       return Json(null);
-    }
+        }
 
-    [HttpPost("download")]
-    public async Task<IActionResult> Download(DownloadOptions options)
-    {
-      var selector = new BaseSelector(CommandSource.Endpoint);
-      var reports = await _downloaderService.Download(selector, options);
-      return Content(JsonConvert.SerializeObject(reports), "application/json");
-    }
+        [HttpPost("download")]
+        public async Task<IActionResult> Download(DownloadOptions options)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            var reports = await _downloaderService.Download(selector, options);
+            return Content(JsonConvert.SerializeObject(reports), "application/json");
+        }
 
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/action/{act}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth")]
+        public async Task<IActionResult> AllForMonth(string code, DateTime fromDate, int take, string source, string act, bool replaceDestinationIfExists, bool isBackward)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                ReplaceDestinationIfExists = replaceDestinationIfExists,
+                GoBackward = isBackward,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.AllForMonth);
+            return Json(results);
+        }
 
-    /* ===== --- ===== --- ===== */
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/action/{act}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForDay")]
+        public async Task<IActionResult> AllForDay(string code, DateTime fromDate, int take, string source, string act, bool replaceDestinationIfExists, bool isBackward)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                ReplaceDestinationIfExists = replaceDestinationIfExists,
+                GoBackward = isBackward,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.AllForDay);
+            return Json(results);
+        }
 
-    /*static*/
-    DateTime _lastDate = DateTime.MinValue;
+        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/action/{act}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMonth")]
+        public async Task<IActionResult> CodeForMonth(string code, DateTime selectedDay, int take, string source, string act, bool replaceDestinationIfExists, bool isBackward)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = selectedDay,
+                Take = take,
+                Code = code,
+                ReplaceDestinationIfExists = replaceDestinationIfExists,
+                GoBackward = isBackward,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForMonth);
+            return Json(results);
+        }
+
+        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/action/{act}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForDay")]
+        public async Task<IActionResult> CodeForDay(string code, DateTime selectedDay, int take, string source, string act, bool replaceDestinationIfExists, bool isBackward)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = selectedDay,
+                Take = take,
+                Code = code,
+                ReplaceDestinationIfExists = replaceDestinationIfExists,
+                GoBackward = isBackward,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForDay);
+            return Json(results);
+        }
+
+        [HttpGet("code/{codes}/take/{take}/source/{source}/action/{act}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMissingDays")]
+        public async Task<IActionResult> CodeForMissingDays(string code, DateTime selectedDay, int take, string source, string act, bool replaceDestinationIfExists, bool isBackward)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                Code = code,
+                ReplaceDestinationIfExists = replaceDestinationIfExists,
+                GoBackward = isBackward,
+            };
+            var results = await _downloaderService.Download(selector, reportingOptions, ActionRange.CodeForDay);
+            return Json(results);
+        }
+
+        #region REPORTING
+        /* ===== --- ===== --- ===== */
+
+        /*static*/
+        DateTime _lastDate = DateTime.MinValue;
     /*static*/
     int _lastSymbol;
 
-    [HttpGet("code/{code}/from/{from}/take/{take}/file/downloads")]
-    public async Task<object> CheckDownloadCompletion(DateTime from, int take, string code)
-    {
-      var selector = new BaseSelector(CommandSource.Endpoint);
-      ReportingOptions reportingOptions = new ReportingOptions()
-      {
-        Take = take,
-        StartingAt = from,
-        Code = code == "any" ? null: code
-      };
-      return await _downloaderService.BuildDownloadSummary(selector, reportingOptions, false);
-    }
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/list/files/content")]
+        public async Task<object> ListFiles_WithContent_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+                Take = take,
+                Code = code,
+            };
+            return await _downloaderService.ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, reportingOptions);
+        }
 
-    [HttpGet("{daysBefore}/database/downloads")]
+        [HttpGet("source/{source}/count/files")]
+        public async Task<object> CountFiles(DateTime fromDate, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+            };
+            return await _downloaderService.CountFiles(selector, reportingOptions);
+        }
+
+        [HttpGet("from/{fromDate}/source/{source}/count/files")]
+        public async Task<object> CountFiles_PerCode_OnTheGivenMonth(DateTime fromDate, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                FromDate = fromDate,
+            };
+            return await _downloaderService.CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+        }
+
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/count/intradays")]
+        public async Task<object> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code, string source)
+        {
+            var selector = new BaseSelector(CommandSource.Endpoint);
+            ReportingOptions reportingOptions = new ReportingOptions()
+            {
+                Take = take,
+                FromDate = fromDate,
+                Code = code == "any" ? null : code
+            };
+            return await _downloaderService.CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, reportingOptions, true);
+        }
+
+        [HttpGet("{daysBefore}/database/downloads")]
     public async Task<object> GetCompletion([FromQuery] string action, int daysBefore)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -229,10 +344,11 @@ namespace Ajuro.Security.Controllers.v3
       return tl;
     }
 
+        #endregion
 
 #if DEBUG
-    
-    [HttpGet("aggregate/fromDb/{replace}")]
+
+        [HttpGet("aggregate/fromDb/{replace}")]
     public async Task<List<Tick>> AggregateFromDb(bool fromFiles, bool replace)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -273,7 +389,7 @@ namespace Ajuro.Security.Controllers.v3
 
       var left = days;
       List<StockReport> reports = new List<StockReport>();
-      var symbols = _symbolRepository.GetAll().Where(p => p.Active).ToList();
+      var symbols = _symbolRepository.GetAll().Where(symbol => Static.SP500.Contains(symbol.Code)).ToList();
       int symbolIndex = symbols.Count;
       if (fromFiles < 1)
       {
@@ -317,11 +433,10 @@ namespace Ajuro.Security.Controllers.v3
             Console.WriteLine("Downloading... " + date.ToShortDateString() + " " + index);
             // StockReport report = null;
             // var stringData = 
-            await _downloaderService.FetchString(selector, new DownloadOptions()
+            await _downloaderService.DownloadCodeForDay(selector, new DownloadOptions()
             {
               SymbolIds = new [] { symbol.SymbolId },
               Dates = new [] { date },
-              FromFileIfExists = true
             });
           }
         }
