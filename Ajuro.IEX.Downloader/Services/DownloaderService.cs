@@ -827,16 +827,21 @@ namespace Ajuro.IEX.Downloader.Services
             
             foreach (var code in options.Codes)
             {
+                if(code == "DEMO")
+                {
+                    continue;
+                }
+
+                if (!Static.SymbolIdFromCode.ContainsKey(code))
+                {
+
+                    continue;
+                }
                 foreach (var rdate in options.Dates)
                 {
                     if (rdate.DayOfWeek == DayOfWeek.Saturday || rdate.DayOfWeek == DayOfWeek.Sunday)
                     {
                         continue; // skip weekends
-                    }
-
-                    if (! Static.SymbolIdFromCode.ContainsKey(code) )
-                    {
-                        break;
                     }
                     
                     var result = await DownloadCodeForDay(selector, new DownloadOptions()
@@ -1005,7 +1010,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             if (dataSource != DataSource.FromFile && options.Step_01_Download_Options.Save_File_If_Missing_And_Nonempty)
             {
-                if (!string.IsNullOrEmpty(dataString) && dataString.Length > 2 && !File.Exists(fileName))
+                // if (!string.IsNullOrEmpty(dataString) && dataString.Length > 2 && !File.Exists(fileName))
                 {
                     try
                     {
