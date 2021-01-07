@@ -50,22 +50,21 @@ namespace Ajuro.IEX.Downloader.Services
         Task<List<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Daily> GetDailyRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Tick> GetIntradayRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> CountFiles(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<List<DownloadIntradayReport>> Deprecated_CountFiles(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions, bool overWrite);
+        Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
 
         #endregion
 
         #region HISTORICAL DOWNLOAD
 
-        Task<string> Download(BaseSelector selector, ReportingOptions options, ActionRange range);
+        Task<List<object>> BulkProcess(BaseSelector selector, ReportingOptions options, ActionRange range);
 
         #endregion
 
         #region COLLECT DATA
 
-        Task<List<DownloadReport>> Download(BaseSelector selector, DownloadOptions options);
         Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date);
         Task<int> FetchToday(BaseSelector selector);
 
@@ -136,6 +135,8 @@ namespace Ajuro.IEX.Downloader.Services
         public bool Save_File_If_Missing_And_Nonempty { get; set; }
         public bool Skip_Checking_For_File { get;  set; }
         public bool Replace_File_If_Exists { get; set; }
+        public bool Skip_Logging { get; set; }
+        
     }
 
     public class Aggregate_Options
