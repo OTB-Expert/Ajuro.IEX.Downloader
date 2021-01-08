@@ -111,7 +111,9 @@ namespace Ajuro.Security.Controllers.v3
             return null;// Content(JsonConvert.SerializeObject(reports), "application/json");
         }
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth")]
+        private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES};
+
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth/processType/{processType}")]
         public async Task<IActionResult> AllForMonth(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
             var selector = new BaseSelector(CommandSource.Endpoint);
@@ -122,15 +124,15 @@ namespace Ajuro.Security.Controllers.v3
                 ReplaceDestinationIfExists = replaceDestinationIfExists,
                 GoBackward = isBackward,
                 ProcessType = processType,
+                SkipDailySummaryCaching = replaceDestinationIfExists,
+                SkipMonthlySummaryCaching = replaceDestinationIfExists,
+                IsMonthly = IsMonthly.Contains(processType)
             };
             var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForMonth);
-            if (processType == ProcessType.CountFiles)
-            {
-            }
             return Json(results);
         }
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForAll")]
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForAll/processType/{processType}")]
         public async Task<IActionResult> AllForAll(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
           var selector = new BaseSelector(CommandSource.Endpoint);
@@ -143,13 +145,10 @@ namespace Ajuro.Security.Controllers.v3
             ProcessType = processType,
           };
           var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForAll);
-          if (processType == ProcessType.CountFiles)
-          {
-          }
           return Json(results);
         }
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForDay")]
+        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForDay/processType/{processType}")]
         public async Task<IActionResult> AllForDay(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
             var selector = new BaseSelector(CommandSource.Endpoint);
@@ -165,7 +164,7 @@ namespace Ajuro.Security.Controllers.v3
             return Json(results);
         }
 
-        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMonth")]
+        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMonth/processType/{processType}")]
         public async Task<IActionResult> CodeForMonth(string code, DateTime selectedDay, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
             var selector = new BaseSelector(CommandSource.Endpoint);
@@ -182,7 +181,7 @@ namespace Ajuro.Security.Controllers.v3
             return Json(results);
         }
 
-        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForDay")]
+        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForDay/processType/{processType}")]
         public async Task<IActionResult> CodeForDay(string code, DateTime selectedDay, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
             var selector = new BaseSelector(CommandSource.Endpoint);
@@ -200,7 +199,7 @@ namespace Ajuro.Security.Controllers.v3
         }
 
         [HttpGet(
-          "code/{codes}/from/{selectedDay}/take/{take}/source/{source}/processType/{processType}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMissingDays")]
+          "code/{codes}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMissingDays/processType/{processType}")]
         public async Task<IActionResult> CodeForMissingDays(string code, DateTime selectedDay, int take, string source,
           ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
         {
@@ -239,6 +238,7 @@ namespace Ajuro.Security.Controllers.v3
             return await _downloaderService.ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, reportingOptions);
         }
 
+        // "downloader/from/2020-03-01/source/file/avoidReadingFilesContent/true/count/files"
         [HttpGet("source/{source}/useMonthlySummaryCaching/{skipMonthlySummaryCaching}/avoidReadingFilesContent/{avoidReadingFilesContent}/count/files")]
         public async Task<object> CountFiles(DateTime fromDate, string source, bool avoidReadingFilesContent, bool skipMonthlySummaryCaching)
         {
@@ -250,7 +250,7 @@ namespace Ajuro.Security.Controllers.v3
                 AvoidReadingFilesContent = avoidReadingFilesContent
             };
             // return await _downloaderService.CountFiles(selector, reportingOptions);
-            return await _downloaderService.CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+            return await _downloaderService.RF_COUNT_FILES_From_CountHistoricalFiles(selector, reportingOptions);
         }
 
         [HttpGet("from/{fromDate}/source/{source}/count/files")]
@@ -261,7 +261,7 @@ namespace Ajuro.Security.Controllers.v3
             {
                 FromDate = fromDate,
             };
-            return await _downloaderService.CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+            return await _downloaderService.RF_COUNT_FILES_From_CountHistoricalFiles(selector, reportingOptions);
         }
 
         [HttpGet("{daysBefore}/database/downloads")]

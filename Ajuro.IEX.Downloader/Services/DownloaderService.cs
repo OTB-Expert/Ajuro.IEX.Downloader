@@ -291,8 +291,6 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return true;
         }
-
-       
         
         #endregion
         
@@ -809,6 +807,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             else if (reportingOptions.Take == 0)
             {
+                date = new DateTime(date.Year, date.Month, reportingOptions.GoBackward ? DateTime.DaysInMonth(date.Year, date.Month) : 1);
                 var month = date.Month;
                 while (month == date.Month && date < DateTime.Today) // Never save today file. Just to avoid skipping it next run
                 {
@@ -829,13 +828,30 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 for (var i = reportingOptions.Take; i >= 0 && date < DateTime.Today; i--)
                 {
-                    if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+                    if (!reportingOptions.IsMonthly && (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday))
                     {
                         date = date.AddDays(reportingOptions.GoBackward ? -1 : 1); // skip weekends
                         continue;
                     }
                     reportingOptions.Dates.Add(new DateTime(date.Year, date.Month, date.Day));
-                    date = date.AddDays(reportingOptions.GoBackward ? -1 : 1);
+                    if (reportingOptions.IsMonthly)
+                    {
+                        var year = date.Year;
+                        var month = date.Month - (reportingOptions.GoBackward ? 1 : 0);
+                        if (month == 0)
+                        {
+                            year = year - 1;
+                            month = 12;
+                        }
+                        var days = DateTime.DaysInMonth(year, month);
+                        i += days - 1;
+                        date = date.AddDays(reportingOptions.GoBackward ? -days : days);
+                        date = date.AddDays(- date.Day + 1);
+                    }
+                    else
+                    {
+                        date = date.AddDays(reportingOptions.GoBackward ? -1 : 1);
+                    }
                 }
             }
 
@@ -900,27 +916,30 @@ namespace Ajuro.IEX.Downloader.Services
                         results.Add(result);
                     }
 
-                    if (reportingOptions.ProcessType == ProcessType.CountFiles)
+                    if (reportingOptions.ProcessType == ProcessType.RF_MONTHLY_SUMMARIES)
                     {
                         if (rdate.Day == 1)
                         {
-                            var result = await CountFiles_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                            var result = await RF_COUNT_FILES_From_CountHistoricalFiles(selector, new ReportingOptions()
                             {
-                                FromDate = date,
-                                SkipMonthlySummaryCaching = reportingOptions.SkipMonthlySummaryCaching
+                                FromDate = rdate,
+                                SkipMonthlySummaryCaching = reportingOptions.SkipMonthlySummaryCaching,
+                                // Replace_File_If_Exists = reportingOptions.ReplaceDestinationIfExists
                             });
-                            results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
+                            // results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
+                            results = result.Cast<object>().ToList();
+                            skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                            break; // Only run once. No muliple months
                         }
 
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
                     }
 
-                    if (reportingOptions.ProcessType == ProcessType.CountFiles_AggregatedPerDay)
+                    if (false && reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_COUNT)
                     {
-                        return null;
-                        var result = await CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        var result = await RF_COUNT_FILES_From_CountHistoricalFiles(selector, new ReportingOptions()
                         {
-                            FromDate = date,
+                            FromDate = rdate,
                             SkipDailySummaryCaching = reportingOptions.SkipDailySummaryCaching
                         });
                         results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
@@ -932,7 +951,22 @@ namespace Ajuro.IEX.Downloader.Services
                         // Takes tens of minutes per month for all symbols
                         var result = await CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
                         {
-                            FromDate = date,
+                            FromDate = rdate,
+                            Codes = reportingOptions.Codes,
+                            ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
+                            Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
+                        });
+                        results = result.Cast<object>().ToList();
+                        skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                        break; // Only run once. No muliple months
+                    }
+
+                    if (reportingOptions.ProcessType == ProcessType.RF_FILE_CONTENT)
+                    {
+                        // Takes tens of minutes per month for all symbols
+                        var result = await CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        {
+                            FromDate = rdate,
                             Codes = reportingOptions.Codes,
                             ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
                             Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
@@ -942,10 +976,31 @@ namespace Ajuro.IEX.Downloader.Services
                         break; // Only run once. No muliple months
                     }
 
+                    if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_COUNT)  
+                    {
+                        if (reportingOptions.Dates.Count > 1 || reportingOptions.Codes.Length > 1)
+                        {
+                            return new List<object> {"Please restrict to one date or to one code"};
+                        } 
+                        // Takes tens of minutes per month for all symbols
+                        var result = await ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        {
+                            FromDate = rdate,
+                            Code = code,
+                            ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
+                            Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
+                        });
+                        results = result.Cast<object>().ToList();
+                        skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                        break; // Only run once. No muliple months
+                    }
+
                     allLeft--;
                     datesLeft--;
-                    if (reportingOptions.ProcessType != ProcessType.CountFiles || rdate.Day == 1)
-                    new Info(selector, 0, $" { reportingOptions.ProcessType } FOR Code: {code}, Date: { rdate.ToString("yyyy-MM-dd") }, Day: {datesLeft}/{datesCount }, Code {codesLeft}/{codesCount}, Left {allLeft}/{allCount}");
+                    if (reportingOptions.ProcessType != ProcessType.RF_MONTHLY_SUMMARIES || rdate.Day == 1)
+                    {
+                        // new Info(selector, 0, $" { reportingOptions.ProcessType } FOR Code: {code}, Date: { rdate.ToString("yyyy-MM-dd") }, Day: {datesLeft}/{datesCount }, Code {codesLeft}/{codesCount}, Left {allLeft}/{allCount}");
+                    }
                 }
                 codesLeft--;
             }
@@ -1153,7 +1208,6 @@ namespace Ajuro.IEX.Downloader.Services
             return existentTick;
         }
 
-
         public async Task<string> GetJsonStream(string url)
         {
             HttpClient client = new HttpClient();
@@ -1284,6 +1338,7 @@ namespace Ajuro.IEX.Downloader.Services
 
         #region REPORTING
 
+        // RF_INTRADAY_FILES_COUNT
         public async Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
@@ -1317,7 +1372,7 @@ namespace Ajuro.IEX.Downloader.Services
 
                 var report = new DownloadIntradayReport()
                 {
-                    SymbolId = i++,
+                    intradayFile = i++,
                     Code = symbolCode,
                     From = date,
                     Count = items.Count,
@@ -1329,7 +1384,7 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
         // No need for this
-        public async Task<List<DownloadIntradayReport>> Deprecated_CountFiles(BaseSelector selector,
+        public async Task<List<DownloadIntradayReport>> RF_COUNT_FILES_From_CountHistoricalFiles(BaseSelector selector,
             ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
@@ -1337,7 +1392,7 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 // Regenerate counting
                 // Step 1 - optional - Generating the files. Prefer to have it in 2 steps with 2 file readings than using it from return
-                CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+                RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
             }
 
             // Step 2 - mandatory - Collecting the generated file paths in one go. Better than checking for each existence.
@@ -1367,7 +1422,7 @@ namespace Ajuro.IEX.Downloader.Services
 
                 var report = new DownloadIntradayReport()
                 {
-                    SymbolId = i++,
+                    MonthlySummaryId = i++,
                     From = date,
                     To = date.AddMonths(1),
                     Counts = count
@@ -1378,10 +1433,11 @@ namespace Ajuro.IEX.Downloader.Services
             return reports;
         }
 
-        public async Task<List<DownloadIntradayReport>> CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
+        
+        // Preparing files for RF_INTRADAY_FILES_COUNT
+        public async Task<List<DownloadIntradayReport>> RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
-
             // Digest query object
             if (reportingOptions.FromDate == null)
             {
@@ -1464,7 +1520,7 @@ namespace Ajuro.IEX.Downloader.Services
                     report.Details.Add(new IntradayDetail()
                     {
                         Seconds = (new DateTimeOffset(fileDate)).ToUnixTimeSeconds(),
-                        Samples = count,
+                        Samples = 0, // count RF_MONTHLY_SUMMARIES
                         Total = itemsLength,
                         Count = 1,
                     });
@@ -1486,6 +1542,7 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
 
+        // RF_COUNT_DETAILS
         public async Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
@@ -1494,7 +1551,7 @@ namespace Ajuro.IEX.Downloader.Services
             var date = new DateTime(reportingOptions.FromDate.Year, reportingOptions.FromDate.Month, 1);
             
             var resultKey = "HistoricalFilesSummary" + (reportingOptions.Codes.Count() > 0 && reportingOptions.Codes.Count() != Static.SP500.Length ? "_" + string.Join("_", reportingOptions.Codes) : "") + (date > DateTime.MinValue ? "_" + date.ToString("yyyyMMdd") : string.Empty);
-            var path = Path.Join(downloaderOptions.LargeResultsFolder, resultKey + ".json");
+            var path = Path.Join(downloaderOptions.SymbolHistoryFolder, resultKey + ".json");
             // Try to recover it from disk
             if (!reportingOptions.SkipDailySummaryCaching && File.Exists(path))
             {
@@ -1595,12 +1652,12 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if (left == 0 || left % 50 == 0)
                     {
-                        Console.WriteLine($" Left: { simbsLeft }, Code: { code }, Samples: { count } ");
+                        Console.WriteLine($" Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { code }, Samples: { count } ");
                     }
                     report.Details.Add(new IntradayDetail()
                     {
                         Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
-                        Samples = count,
+                        Samples = count, // Ticks count from intraday files
                         Total = itemsLength,
                         Count = 1,
 
@@ -1784,7 +1841,7 @@ namespace Ajuro.IEX.Downloader.Services
                     report.Details.Add(new IntradayDetail()
                     {
                         Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
-                        Samples = count,
+                        Samples = count, // Ticks count from intraday files
                         Total = itemsLength,
                         Count = 1,
 

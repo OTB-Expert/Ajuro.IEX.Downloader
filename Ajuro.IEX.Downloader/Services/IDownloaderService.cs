@@ -21,6 +21,7 @@ namespace Ajuro.IEX.Downloader.Services
         AggregdateDays, // will get all the records of a symbol, order them and merge them into one record
         AggregateSymbols
     }
+    
     public interface IDownloaderService
     {
 
@@ -50,9 +51,9 @@ namespace Ajuro.IEX.Downloader.Services
         Task<List<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Daily> GetDailyRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Tick> GetIntradayRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> Deprecated_CountFiles(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<List<DownloadIntradayReport>> RF_COUNT_FILES_From_CountHistoricalFiles(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<List<DownloadIntradayReport>> RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
         Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
 
         #endregion
