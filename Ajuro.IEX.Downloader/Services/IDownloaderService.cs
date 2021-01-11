@@ -48,19 +48,19 @@ namespace Ajuro.IEX.Downloader.Services
 
         #region REPORTING
         Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<IEnumerable<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Daily> GetDailyRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
         IQueryable<Tick> GetIntradayRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> RF_COUNT_FILES_From_CountHistoricalFiles(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
-        Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<IEnumerable<DownloadIntradayReport>> RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<IEnumerable<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<List<DownloadIntradayReport>> RF_MONTHLY_SUMMARIES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
+        Task<IEnumerable<DownloadIntradayReport>> RF_PER_CODE_SUMMARY_CountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions);
 
         #endregion
 
         #region HISTORICAL DOWNLOAD
 
-        Task<List<object>> BulkProcess(BaseSelector selector, ReportingOptions options, ActionRange range);
+        Task<IEnumerable<object>> BulkProcess(BaseSelector selector, ReportingOptions options, ActionRange range);
 
         #endregion
 
@@ -148,6 +148,11 @@ namespace Ajuro.IEX.Downloader.Services
     public class Join_Options
     {
         public bool Skip_This_Step { get; set; }
+        public bool Skip_Loading_If_File_Exists { get; set; }
+        public bool Save_File_If_Missing_And_Nonempty { get; set; }
+        public bool Skip_Checking_For_File { get; set; }
+        public bool Skip_Logging { get; set; }
+        public bool Replace_File_If_Exists { get; set; }
     }
 
     public class DownloaderOptions
@@ -157,7 +162,8 @@ namespace Ajuro.IEX.Downloader.Services
             IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74";
 #if Linux
             DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
-            SymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/SymbolHistory";
+            MonthlyParsedFiles = @"/home/florin/PRO/Test3/Data/Historical/MonthlyParsedFiles";
+            CountsFolder = @"/home/florin/PRO/Test3/Data/Historical/CountsHistory";
             DailyGraphsFolder = @"/home/florin/PRO/Test3/Data/Historical/DailyGraphs";
             LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
 #else
@@ -171,7 +177,8 @@ namespace Ajuro.IEX.Downloader.Services
         public string IEX_Token { get; set; }
         public string DailyGraphsFolder { get; set; }
         public string DailySymbolHistoryFolder { get; set; }
-        public string SymbolHistoryFolder { get; set; }
+        public string MonthlyParsedFiles { get; set; }
+        public string CountsFolder { get; set; }
         public string LargeResultsFolder { get; set; }
 
         /// <summary>

@@ -66,6 +66,7 @@ namespace Ajuro.IEX.Downloader.Services
             this.downloaderOptions = downloaderOptions;
         }
         
+        
         /// <summary>
         /// Merge intraday records into one foreach symbol
         /// </summary>
@@ -74,26 +75,19 @@ namespace Ajuro.IEX.Downloader.Services
             var date = options.Dates[0];
             var symbolId = options.SymbolIds[0];
             var symbolCode = Static.SymbolCodeFromId[symbolId];
-            var fileName = string.Empty;
-            fileName = Path.Join(downloaderOptions.DailySymbolHistoryFolder, "Intraday_" + symbolCode + "_" + date.ToString("yyyyMMdd") + ".json");
+            var destinationFile = string.Empty;
+            var sourceFilesPattern =  "Intraday_" + symbolCode + "_" + date.ToString("yyyyMM") + "*.json";
 
             if (!string.IsNullOrEmpty(dataString)) { 
                 // No need to collect
             }
-            else if (date > DateTime.MinValue)
+            else  
             {
-                if (File.Exists(fileName))
-                {
-                    dataString = File.ReadAllText(fileName);
-                }
-            }
-            else
-            {
-                fileName = Path.Join( downloaderOptions.SymbolHistoryFolder, symbolCode + ".json");
+                destinationFile = Path.Join( downloaderOptions.MonthlyParsedFiles, symbolCode + ".json");
 
-                if (!options.Step_01_Download_Options.Replace_File_If_Exists && File.Exists(fileName))
+                if (!options.Step_01_Download_Options.Replace_File_If_Exists && File.Exists(destinationFile))
                 {
-                    dataString = File.ReadAllText(fileName);
+                    dataString = File.ReadAllText(destinationFile);
                     var items = (object[][])JsonConvert.DeserializeObject<object[][]>(dataString);
                     return items;
                 }
@@ -101,16 +95,16 @@ namespace Ajuro.IEX.Downloader.Services
                 var strings = new List<string>();
 
                 List<Sample> samples = new List<Sample>();
-                string[] FilePaths = null;
+                string[] sourceFiles = null;
 
-                FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, "Intraday_" + symbolCode + "_*.json");
-                FilePaths = FilePaths.OrderBy(p => p).ToArray();
+                sourceFiles = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder,sourceFilesPattern); // was for all year here
+                sourceFiles = sourceFiles.OrderBy(p => p).ToArray();
 
-                var filesCount = FilePaths.Count();
+                var filesCount = sourceFiles.Count();
                 int fileIndex = 0;
-                for (int f = 0; f < FilePaths.Length; f++)
+                for (int f = 0; f < sourceFiles.Length; f++)
                 {
-                    var filePath = FilePaths[f];
+                    var filePath = sourceFiles[f];
                     fileIndex++;
                     string content = File.ReadAllText(filePath);
                     if (content.Length == 2)
@@ -197,9 +191,9 @@ namespace Ajuro.IEX.Downloader.Services
                     };
                 }
                 var ticksArray = values.Where(p => p.marketAverage.HasValue).Where(p => p.marketAverage.Value != -1).Select(p => new object[] { (Int64)(p.date.AddSeconds(ToSeconds(p.minute)).Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds, p.marketAverage.Value }).ToArray();
-                if (options.Step_01_Download_Options.Save_File_If_Missing_And_Nonempty && !File.Exists(fileName))
+                if (options.Step_01_Download_Options.Save_File_If_Missing_And_Nonempty && !File.Exists(destinationFile))
                 {
-                    File.WriteAllText(fileName, JsonConvert.SerializeObject(ticksArray));
+                    File.WriteAllText(destinationFile, JsonConvert.SerializeObject(ticksArray));
                 }
                 return ticksArray;
             }
@@ -208,6 +202,217 @@ namespace Ajuro.IEX.Downloader.Services
                 new Info(selector, -1, ex, string.Empty);
             }
             return null;
+        }
+
+        /// <summary>
+        /// Merge intraday records into one foreach symbol
+        /// </summary>
+        public async Task<List<object[][]>> NestedProcessString(BaseSelector selector, ReportingOptions reportingOptions)
+        {
+            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
+            // Digest query object
+            if (reportingOptions.FromDate == null)
+            {
+                return null;
+            }
+
+            // Make sure we use the first day in a month
+            var date = new DateTime(reportingOptions.FromDate.Year, reportingOptions.FromDate.Month, 1);
+
+
+            // Preparing for action
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            string[] sourceFiles;
+            var fileDateFilter = date == DateTime.MinValue ? "*" : date.ToString("yyyyMM") + "*";
+            sourceFiles = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder,
+                $"Intraday_*_{fileDateFilter}.json");
+            sourceFiles = sourceFiles.OrderBy(p => p).ToArray();
+
+            int simbsLeft = Static.SP500.Count();
+            var tickArrays = new List<object[][]>();
+            foreach (var code in Static.SP500)
+            {
+                simbsLeft--;
+                var symbolId = 0;
+
+                Symbol symbol = null;
+                try
+                {
+                    symbol = Static.SymbolsDictionary.FirstOrDefault(p => p.Value.Code == code).Value;
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally unhandled
+                }
+
+                if (symbol == null)
+                {
+                    continue;
+                }
+
+                symbolId = symbol.SymbolId;
+
+
+                var resultKey = "Parsed_" + symbol.Code + "" +
+                                (date > DateTime.MinValue ? "_" + date.ToString("yyyyMMdd") : string.Empty);
+
+                var report = new DownloadIntradayReport()
+                {
+                    SymbolId = symbolId,
+                    Code = code,
+                    Details = new List<IntradayDetail>()
+                };
+
+                // Try to recover it from disk
+                var destinationName = Path.Join(downloaderOptions.MonthlyParsedFiles, resultKey + ".json");
+                if (!reportingOptions.SkipMonthlySummaryCaching && File.Exists(destinationName))
+                {
+                    var fileContent = File.ReadAllText(destinationName);
+                    var items = (object[][]) JsonConvert.DeserializeObject<object[][]>(fileContent);
+
+                    report.Details.Add(new IntradayDetail()
+                    {
+                        Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
+                        Samples = 0, // count RF_MONTHLY_SUMMARIES
+                        Total = items.Length,
+                        Count = 1,
+                    });
+
+                    report.From = date;
+                    report.To = date;
+                    report.Count = 0;
+                    reports.Add(report);
+                    continue;
+                }
+
+                var codePaths = sourceFiles.Where(p => p.IndexOf("_" + code + "_") > 0);
+                int left = codePaths.Count();
+
+                DateTime from = DateTime.MaxValue;
+                DateTime to = DateTime.MinValue;
+                var dataString = string.Empty;
+                var strings = new List<string>();
+                foreach (var filePath in codePaths)
+                {
+                    left--;
+                    string content = File.ReadAllText(filePath);
+                    if (content.Length == 2)
+                    {
+                        continue;
+                    }
+
+                    if (content.Length < 500)
+                    {
+                        continue;
+                    }
+
+                    strings.Add(content.Substring(1, content.Length - 2));
+                }
+
+                dataString = "[" + string.Join(",", strings) + "]";
+
+                try
+                {
+                    var values = new List<IexItem>();
+                    var emptyTicks = 0;
+                    try
+                    {
+                        values = (List<IexItem>) JsonConvert.DeserializeObject<List<IexItem>>(dataString);
+                        emptyTicks = values.Count;
+                        values = values.Where(p => p.average.HasValue == true).ToList();
+                        emptyTicks -= values.Count();
+                    }
+                    catch (Exception e)
+                    {
+                        /*
+                        logEntryBreakdown.EndTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                        await _logRepository.AddAsync(new Log()
+                        {
+                            StartTime = logEntryBreakdown.StartTime,
+                            EndTime = logEntryBreakdown.EndTime,
+                            Tag = logEntryBreakdown,
+                            TagString = JsonConvert.SerializeObject(logEntryBreakdown),
+                            Source = CommandSource.Scheduler,
+                            Method = logEntryBreakdown.Indicator
+                        });*/
+                        /*
+                        new Report
+                        {
+                            SymbolId = symbol.SymbolId,
+                            Samples = 0,
+                            Message = (data.Length > 30 ? data.Substring(0, 30) + "..." : data),
+                            Date = date,
+        #if DEBUG
+                            Url = url,
+        #endif
+                            Updated = DateTime.UtcNow,
+                            Alerts = _alertRepository.All().Where(p => p.Symbol.SymbolId == symbol.SymbolId && p.IsEnabled == true).Count(),
+                            Last = -1
+                        };*/
+                    }
+
+                    // _logger.LogInformation("Loaded count for " + symbol.Name + " : " + values.Count);
+                    if (values.Count == 0)
+                    {
+                        if (emptyTicks > 0)
+                        {
+                            // Is empty but we take a note that we already captured it.
+                            // symbol.Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            // await _symbolRepository.UpdateAsync(symbol);
+                        }
+                        else
+                        {
+                            // symbol.Active = false;
+                            // symbol.Updated = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                            // await _symbolRepository.UpdateAsync(symbol);
+                        }
+
+                        new StockReport
+                        {
+                            SymbolId = symbolId,
+                            Code = symbol.Code,
+                            Samples = 0,
+                            Message = "No data!",
+                            Date = date,
+#if DEBUG
+                            // Url = url,
+#endif
+                            Updated = DateTime.UtcNow,
+                            Alerts = _alertRepository.All()
+                                .Where(p => p.Symbol.SymbolId == symbolId && p.IsEnabled == true).Count(),
+                            Last = -1
+                        };
+                    }
+
+                    var ticksArray = values
+                        .Where(p => p.marketAverage.HasValue)
+                        .Where(p => p.marketAverage.Value != -1)
+                        .Select(p =>
+                            new object[]
+                            {
+                                (Int64) (p.date.AddSeconds(ToSeconds(p.minute)).Subtract(new DateTime(1970, 1, 1)))
+                                .TotalMilliseconds/10000,
+                                p.marketAverage.Value
+                            }).ToArray();
+
+
+                    if (!reportingOptions.Skip_Replacing_Monthly_SummaryCaching)
+                    {
+                        var content = JsonConvert.SerializeObject(ticksArray);
+                        new Info(selector, symbol.SymbolId, destinationName + " Size: " + content.Length);
+                        File.WriteAllText(destinationName, content);
+                    }
+
+                    tickArrays.Add(ticksArray);
+                }
+                catch (Exception ex)
+                {
+                    new Info(selector, -1, ex, string.Empty);
+                }
+
+                return null;
+            }
+            return tickArrays;
         }
 
         public int ToSeconds(string minutes)
@@ -421,7 +626,10 @@ namespace Ajuro.IEX.Downloader.Services
                     object[][] values = null;
                     if (options.FromDbIfExists)
                     {
-                        var dbEntry = _tickRepository.All().FirstOrDefault(p=>p.SymbolId == symbolId && p.Seconds == Static.MidnightSecondsFromSeconds(seconds));
+                        var dbEntry = _tickRepository.All().FirstOrDefault(p=>
+                            p.IsMonthly == false && 
+                            p.SymbolId == symbolId 
+                            && p.Seconds == Static.MidnightSecondsFromSeconds(seconds));
                         if(dbEntry != null)
                         {
                             new Info(selector, symbolId, "  From DB... " + Static.SymbolCodeFromId[dbEntry.SymbolId]);
@@ -767,7 +975,7 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
-        public async Task<List<Object>> BulkProcess(BaseSelector selector, ReportingOptions reportingOptions, ActionRange action)
+        public async Task<IEnumerable<Object>> BulkProcess(BaseSelector selector, ReportingOptions reportingOptions, ActionRange action)
         {
             var results = new List<object>();
             
@@ -778,9 +986,23 @@ namespace Ajuro.IEX.Downloader.Services
             }
             else
             {
-                if (reportingOptions.Codes == null || reportingOptions.Codes.Length == 0)
+                if (reportingOptions.Codes == null || reportingOptions.Codes.Length == 0 || (reportingOptions.Codes.Length == 1 && reportingOptions.Codes[0] == "all"))
                 {
+                    reportingOptions.IsAllCodes = true;
                     reportingOptions.Codes = Static.SP500; // Process all codes if no specific code provided
+                }
+                else
+                {
+                    if (reportingOptions.Codes[0] == "all")
+                    {
+                        reportingOptions.Codes = reportingOptions.Codes.Skip(1).ToArray();
+                    }
+
+                    if (reportingOptions.Codes.Length == 1)
+                    {
+                        var index = Array.IndexOf(Static.SP500, reportingOptions.Codes[0]);
+                        reportingOptions.Codes = Static.SP500.Skip(index > 2 ? index-2: 0).Take(5).ToArray();
+                    }
                 }
             }
             
@@ -888,7 +1110,7 @@ namespace Ajuro.IEX.Downloader.Services
                         continue; // skip weekends
                     }
 
-                    if (reportingOptions.ProcessType == ProcessType.DownloadFromIex)
+                    if (reportingOptions.ProcessType == ProcessType.Step_1_DownloadFromIex)
                     {
                         var result = await DownloadCodeForDay(selector, new DownloadOptions()
                         {
@@ -916,13 +1138,52 @@ namespace Ajuro.IEX.Downloader.Services
                         results.Add(result);
                     }
 
+                    if (reportingOptions.ProcessType == ProcessType.Step_2_ProcessFiles)
+                    {
+                        var result = await NestedProcessString(selector, new ReportingOptions(){
+                            FromDate = rdate,
+                            IsAllCodes = reportingOptions.IsAllCodes,
+                            Codes = reportingOptions.Codes,
+                            Source = reportingOptions.Source,
+                            SkipDailySummaryCaching = reportingOptions.ReplaceDestinationIfExists,
+                            ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
+                        }/*,
+                            new DownloadOptions()
+                        {
+                            SymbolIds = new[] {Static.SymbolIdFromCode[code]},
+                            Dates = new[] {rdate},
+                            SaveOnly = true,
+                            Step_01_Download_Options = new Download_Options()
+                            {
+                                Skip_This_Step = true
+                            },
+                            Step_02_Join_Options = new Join_Options()
+                            {
+                                Skip_This_Step = false,
+                                Save_File_If_Missing_And_Nonempty = true,
+                                Skip_Loading_If_File_Exists = true,
+                                Skip_Checking_For_File = true,
+                                Skip_Logging = false,
+                                Replace_File_If_Exists = reportingOptions.ReplaceDestinationIfExists
+                            },
+                            Step_03_Aggregate_Options = new Aggregate_Options()
+                            {
+                                Skip_This_Step = true
+                            }
+                        }*/);
+                        results.Add(result);
+                    }
+
                     if (reportingOptions.ProcessType == ProcessType.RF_MONTHLY_SUMMARIES)
                     {
                         if (rdate.Day == 1)
                         {
-                            var result = await RF_COUNT_FILES_From_CountHistoricalFiles(selector, new ReportingOptions()
+                            var result = await RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(selector, new ReportingOptions()
                             {
                                 FromDate = rdate,
+                                Dates = new List<DateTime>(){ rdate },
+                                Source = reportingOptions.Source,
                                 SkipMonthlySummaryCaching = reportingOptions.SkipMonthlySummaryCaching,
                                 // Replace_File_If_Exists = reportingOptions.ReplaceDestinationIfExists
                             });
@@ -935,26 +1196,51 @@ namespace Ajuro.IEX.Downloader.Services
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
                     }
 
-                    if (false && reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_COUNT)
+                    if (reportingOptions.ProcessType == ProcessType.RF_UPLOAD_MONTHLY)
                     {
-                        var result = await RF_COUNT_FILES_From_CountHistoricalFiles(selector, new ReportingOptions()
+                        if (rdate.Day == 1)
+                        {
+                            var result = await RF_UPLOAD_MONTHLY_From_ProcesedFiles(selector, new ReportingOptions()
+                            {
+                                FromDate = rdate,
+                                Dates = new List<DateTime>(){ rdate },
+                                Source = reportingOptions.Source,
+                                SkipMonthlySummaryCaching = reportingOptions.SkipMonthlySummaryCaching,
+                                // Replace_File_If_Exists = reportingOptions.ReplaceDestinationIfExists
+                            });
+                            // results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
+                            results = result.Cast<object>().ToList();
+                            skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                            break; // Only run once. No muliple months
+                        }
+
+                        skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                    }
+
+                    if (false && reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_LIST)
+                    {
+                        var result = await RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(selector, new ReportingOptions()
                         {
                             FromDate = rdate,
+                            Source = reportingOptions.Source,
                             SkipDailySummaryCaching = reportingOptions.SkipDailySummaryCaching
                         });
                         results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
                     }
 
-                    if (reportingOptions.ProcessType == ProcessType.RF_COUNT_DETAILS)
+                    if (reportingOptions.ProcessType == ProcessType.RF_PER_CODE_SUMMARY || reportingOptions.ProcessType == ProcessType.RF_DB_CODE_SUMMARY)
                     {
                         // Takes tens of minutes per month for all symbols
-                        var result = await CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        var result = await RF_PER_CODE_SUMMARY_CountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
                         {
                             FromDate = rdate,
+                            IsAllCodes = reportingOptions.IsAllCodes,
                             Codes = reportingOptions.Codes,
+                            Source = reportingOptions.Source,
+                            SkipDailySummaryCaching = reportingOptions.ReplaceDestinationIfExists,
                             ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
-                            Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
                         });
                         results = result.Cast<object>().ToList();
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
@@ -964,20 +1250,22 @@ namespace Ajuro.IEX.Downloader.Services
                     if (reportingOptions.ProcessType == ProcessType.RF_FILE_CONTENT)
                     {
                         // Takes tens of minutes per month for all symbols
-                        var result = await CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        var result = await RF_PER_CODE_SUMMARY_CountIntradays_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
                         {
                             FromDate = rdate,
                             Codes = reportingOptions.Codes,
+                            Source = reportingOptions.Source,
+                            SkipDailySummaryCaching = reportingOptions.ReplaceDestinationIfExists,
                             ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
-                            Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
                         });
                         results.Add( new { Counts = result, Id = reportingOptions.Dates.IndexOf(rdate), From = rdate});
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
                         break; // Only run once. No muliple months
                     }
 
-                    if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_COUNT)  
-                    {
+                    if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_LIST)  
+                    {   
                         if (reportingOptions.Dates.Count > 1 || reportingOptions.Codes.Length > 1)
                         {
                             return new List<object> {"Please restrict to one date or to one code"};
@@ -987,8 +1275,9 @@ namespace Ajuro.IEX.Downloader.Services
                         {
                             FromDate = rdate,
                             Code = code,
+                            Source = reportingOptions.Source,
                             ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
-                            Skip_RF_COUNT_DETAILS_Caching = reportingOptions.Skip_RF_COUNT_DETAILS_Caching
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
                         });
                         results = result.Cast<object>().ToList();
                         skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
@@ -1064,7 +1353,10 @@ namespace Ajuro.IEX.Downloader.Services
                 };
                 foreach (var date in dates)
                 {
-                    var serialized = _tickRepository.All().FirstOrDefault(p => p.Date == date && p.Symbol == symbol)?.Serialized;
+                    var serialized = _tickRepository.All().FirstOrDefault(p => 
+                        p.IsMonthly == false && 
+                        p.Date == date && 
+                        p.Symbol == symbol)?.Serialized;
                     if (!string.IsNullOrEmpty(serialized) && serialized.Length > 2)
                     {
                         result.Data += "," + serialized.Substring(1, serialized.Length - 2);
@@ -1090,7 +1382,7 @@ namespace Ajuro.IEX.Downloader.Services
             FromFile,
             FromDB,
         }
-
+        
         public async Task<string> DownloadCodeForDay(BaseSelector selector, DownloadOptions options)
         {
             if (Static.SymbolCodeFromId.Count == 0)
@@ -1179,7 +1471,10 @@ namespace Ajuro.IEX.Downloader.Services
                 seconds = (new DateTimeOffset(date.Date)).ToUnixTimeSeconds();
             }
 
-            var existentTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == seconds && p.SymbolId == symbol.SymbolId);
+            var existentTick = _tickRepository.All().FirstOrDefault(p =>
+                p.IsMonthly == false && 
+                p.Seconds == seconds && 
+                p.SymbolId == symbol.SymbolId);
             // if (date.DayOfYear != DateTime.UtcNow.DayOfYear)
             // {
             if (existentTick != null)
@@ -1247,7 +1542,10 @@ namespace Ajuro.IEX.Downloader.Services
                     continue;
                 }
 
-                var aggregatedTick = _tickRepository.All().FirstOrDefault(p => p.Seconds == 0 && p.SymbolId == symbols[symi].SymbolId);
+                var aggregatedTick = _tickRepository.All().FirstOrDefault(p => 
+                    p.IsMonthly == false && 
+                    p.Seconds == 0 && 
+                    p.SymbolId == symbols[symi].SymbolId);
                 if (aggregatedTick == null)
                 {
                     var tickArray = await ProcessString(selector, new DownloadOptions(){
@@ -1338,8 +1636,8 @@ namespace Ajuro.IEX.Downloader.Services
 
         #region REPORTING
 
-        // RF_INTRADAY_FILES_COUNT
-        public async Task<List<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
+        // RF_INTRADAY_FILES_LIST
+        public async Task<IEnumerable<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
 
@@ -1382,9 +1680,117 @@ namespace Ajuro.IEX.Downloader.Services
             }
             return reports;
         }
+        
+            
+        public async Task<IEnumerable<DownloadIntradayReport>> RF_UPLOAD_MONTHLY_From_ProcesedFiles(BaseSelector selector,
+            ReportingOptions reportingOptions)
+        {
+            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
 
+            // Step 2 - mandatory - Collecting the generated file paths in one go. Better than checking for each existence.
+            var sourceFiles = Directory.GetFiles(downloaderOptions.MonthlyParsedFiles, $"Parsed_*_*.json");
+                
+            int simbsLeft = Static.SP500.Count();
+            foreach (var code in Static.SP500)
+            {
+                simbsLeft--;
+                var symbolId = 0;
+
+                Symbol symbol = null;
+                try
+                {
+                    symbol = Static.SymbolsDictionary.FirstOrDefault(p => p.Value.Code == code).Value;
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally unhandled
+                }
+                if (symbol == null)
+                {
+                    continue;
+                }
+                symbolId = symbol.SymbolId;
+                var report = new DownloadIntradayReport()
+                {
+                    SymbolId = symbolId,
+                    Code = code,
+                    Details = new List<IntradayDetail>()
+                };
+                var codePaths = sourceFiles.Where(p => p.IndexOf("_" + code + "_") > 0);
+                int left = codePaths.Count();
+
+                DateTime from = DateTime.MaxValue;
+                DateTime to = DateTime.MinValue;
+                foreach (var codePath in codePaths)
+                {
+                    left--;
+                    var dateString = codePath.Substring(codePath.LastIndexOf("_") + 1);
+                    dateString = dateString.Substring(0, dateString.LastIndexOf("."));
+                    dateString = dateString.Substring(6, 2) + "-" + dateString.Substring(4, 2) + "-" + dateString.Substring(0, 4);
+                    DateTime fileDate = DateTime.Parse(dateString);
+                    if (fileDate < from)
+                    {
+                        from = fileDate;
+                    }
+                    if (to < fileDate)
+                    {
+                        to = fileDate;
+                    }
+
+                    var count = 0;
+                    var itemsLength = 1;
+                    if (left == 0 || left % 50 == 0)
+                    {
+                        // Console.WriteLine(simbsLeft + " " + code + ": " + left);
+                    }
+
+                    var serializedTicksArray = File.ReadAllText(codePath);
+                    
+                    var existentTick = _tickRepository.All().FirstOrDefault(p =>
+                        p.IsMonthly == true &&
+                        p.Date == fileDate && 
+                        p.SymbolId == symbol.SymbolId 
+                        );
+                    var exists = existentTick != null;
+                    if (exists)
+                    {
+                        if (reportingOptions.ReplaceDestinationIfExists)
+                        {
+                            // tickExists = true;
+                            existentTick.Serialized = serializedTicksArray;
+                            existentTick.Samples = serializedTicksArray.Split("],[").Length;
+                            // existentTick.SymbolId = symbol.SymbolId;
+                            await _tickRepository.UpdateAsync(existentTick);
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        existentTick = new Tick()
+                        {
+                            Date = fileDate,
+                            Serialized = serializedTicksArray,
+                            Samples = serializedTicksArray.Split("],[").Length,
+                            Symbol = symbol.Code,
+                            SymbolId = symbol.SymbolId,
+                            IsMonthly = true
+                        };
+                        await _tickRepository.AddAsync(existentTick);
+                    }
+                    
+                    new Info(selector, symbolId, $@"  Uploaded {(exists ? " existent ":" new ")}... Code: {symbol.Code} Day: {fileDate.ToString("yyyyMMdd")} Samples: {existentTick.Samples}");
+            }
+
+            }
+
+            return reports;
+        }
+        
         // No need for this
-        public async Task<List<DownloadIntradayReport>> RF_COUNT_FILES_From_CountHistoricalFiles(BaseSelector selector,
+        public async Task<IEnumerable<DownloadIntradayReport>> RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(BaseSelector selector,
             ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
@@ -1392,12 +1798,20 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 // Regenerate counting
                 // Step 1 - optional - Generating the files. Prefer to have it in 2 steps with 2 file readings than using it from return
-                RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+                RF_MONTHLY_SUMMARIES_CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
             }
 
             // Step 2 - mandatory - Collecting the generated file paths in one go. Better than checking for each existence.
             var filePaths = Directory.GetFiles(downloaderOptions.LargeResultsFolder, $"CountHistoricalFiles_*.json");
+            var selectedFilePath = filePaths.FirstOrDefault(p => p.Contains(reportingOptions.FromDate.ToString("yyyyMMdd")));
+            int index = 0;
             filePaths = filePaths.OrderBy(p => p).ToArray();
+            if (!string.IsNullOrEmpty(selectedFilePath))
+            {
+                index = Array.IndexOf(filePaths, selectedFilePath);
+            }
+            filePaths = filePaths.Skip(index > 0 ? index - 1 : 0).Take(3).ToArray();
+
             int i = 0;
 
             foreach (var filePath in filePaths)
@@ -1434,8 +1848,8 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
         
-        // Preparing files for RF_INTRADAY_FILES_COUNT
-        public async Task<List<DownloadIntradayReport>> RF_COUNT_FILES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
+        // Preparing files for RF_INTRADAY_FILES_LIST
+        public async Task<List<DownloadIntradayReport>> RF_MONTHLY_SUMMARIES_CountFiles_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
             // Digest query object
@@ -1459,10 +1873,10 @@ namespace Ajuro.IEX.Downloader.Services
 
             // Preparing for action
             var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            string[] FilePaths;
+            string[] sourceFiles;
             var fileDateFilter = date == DateTime.MinValue ? "*" : date.ToString("yyyyMM") + "*";
-            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, $"Intraday_*_{fileDateFilter}.json");
-            FilePaths = FilePaths.OrderBy(p => p).ToArray();
+            sourceFiles = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, $"Intraday_*_{fileDateFilter}.json");
+            sourceFiles = sourceFiles.OrderBy(p => p).ToArray();
 
             int simbsLeft = Static.SP500.Count();
             foreach (var code in Static.SP500)
@@ -1490,7 +1904,7 @@ namespace Ajuro.IEX.Downloader.Services
                     Code = code,
                     Details = new List<IntradayDetail>()
                 };
-                var codePaths = FilePaths.Where(p => p.IndexOf("_" + code + "_") > 0);
+                var codePaths = sourceFiles.Where(p => p.IndexOf("_" + code + "_") > 0);
                 int left = codePaths.Count();
 
                 DateTime from = DateTime.MaxValue;
@@ -1542,21 +1956,28 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
 
-        // RF_COUNT_DETAILS
-        public async Task<List<DownloadIntradayReport>> CountFiles_AndCountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
+        // RF_PER_CODE_SUMMARY
+        public async Task<IEnumerable<DownloadIntradayReport>> RF_PER_CODE_SUMMARY_CountIntradays_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
             
             // Make sure we use the first day in a month
             var date = new DateTime(reportingOptions.FromDate.Year, reportingOptions.FromDate.Month, 1);
             
-            var resultKey = "HistoricalFilesSummary" + (reportingOptions.Codes.Count() > 0 && reportingOptions.Codes.Count() != Static.SP500.Length ? "_" + string.Join("_", reportingOptions.Codes) : "") + (date > DateTime.MinValue ? "_" + date.ToString("yyyyMMdd") : string.Empty);
-            var path = Path.Join(downloaderOptions.SymbolHistoryFolder, resultKey + ".json");
+            var resultKey = (reportingOptions.Source == DataSourceType.Files ? "HistoricalFilesSummary" : "HistoricalDbSummary")
+                            // + (reportingOptions.Codes.Count() > 0 && reportingOptions.Codes.Count() != Static.SP500.Length ? "_" + string.Join("_", reportingOptions.Codes) : "") 
+                            + (date > DateTime.MinValue ? "_" + date.ToString("yyyyMMdd") : string.Empty);
+            var destinationFile = Path.Join(downloaderOptions.CountsFolder, resultKey + ".json");
             // Try to recover it from disk
-            if (!reportingOptions.SkipDailySummaryCaching && File.Exists(path))
+            if (!reportingOptions.SkipDailySummaryCaching && File.Exists(destinationFile))
             {
-                var fileContent = File.ReadAllText(path);
-                return (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
+                var fileContent = File.ReadAllText(destinationFile);
+                var data = (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
+                if (reportingOptions.IsAllCodes)
+                {
+                    return data;
+                }
+                return data.Where(p => reportingOptions.Codes.Contains(p.Code)).OrderBy(p=>p.Code);
             }
 
             // Try to recover it from DB
@@ -1565,22 +1986,29 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 if (result != null)
                 {
-                    return (List<DownloadIntradayReport>) JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(
+                    var data = (List<DownloadIntradayReport>) JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(
                         result.TagString);
+                    if (reportingOptions.IsAllCodes)
+                    {
+                        return data;
+                    }
+                    return data.Where(p => reportingOptions.Codes.Contains(p.Code));
                 }
             }
 
             // Preparing for action
             var startTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            string[] FilePaths;
+            
+            
+            string[] sourceFiles;
             var symbolCode = (reportingOptions.Codes.Count() == 1 ? reportingOptions.Codes[0] : "*");
             var fileDateFilter = reportingOptions.FromDate == DateTime.MinValue ? "*" : reportingOptions.FromDate.ToString("yyyyMM") + "*";
-            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, $"Intraday_{symbolCode}_{fileDateFilter}.json");
+            sourceFiles = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, $"Intraday_{symbolCode}_{fileDateFilter}.json");
             if (reportingOptions.Codes.Count() > 1)
             {
-                FilePaths = FilePaths.Where(p => reportingOptions.Codes.Contains(p.Substring(p.IndexOf('_') + 1, p.LastIndexOf('_') - p.IndexOf('_') - 1))).ToArray();
+                sourceFiles = sourceFiles.Where(p => reportingOptions.Codes.Contains(p.Substring(p.IndexOf('_') + 1, p.LastIndexOf('_') - p.IndexOf('_') - 1))).ToArray();
             }
-            FilePaths = FilePaths.OrderBy(p => p).ToArray();
+            sourceFiles = sourceFiles.OrderBy(p => p).ToArray();
 
             int simbsLeft = Static.SP500.Count();
             foreach (var code in Static.SP500)
@@ -1608,7 +2036,34 @@ namespace Ajuro.IEX.Downloader.Services
                     Code = code,
                     Details = new List<IntradayDetail>()
                 };
-                var codePaths = FilePaths.Where(p => p.IndexOf("_" + code + "_") > 0);
+
+                if (reportingOptions.Source == DataSourceType.Files)
+                {
+                    CountFromFiles(selector, sourceFiles, symbol, date, simbsLeft, report);
+                }
+                if (reportingOptions.Source == DataSourceType.Db)
+                {
+                    CountFromDb(selector, sourceFiles, symbol, date, simbsLeft, report);
+                }
+
+                reports.Add(report);
+            }
+
+            // Saving action results
+            if (reportingOptions.IsAllCodes)
+            {
+                var success = await SaveResult(selector, result, startTime, resultKey, reports, reportingOptions.ReplaceDestinationIfExists, downloaderOptions.CountsFolder, new SaveResultsOptions
+                {
+                    SaveToDb = true,
+                    SaveToFile = true
+                });
+            }
+            return reports;
+        }
+
+        private void CountFromFiles(BaseSelector selector, string[] filePaths, Symbol symbol, DateTime date, int simbsLeft, DownloadIntradayReport report)
+        {
+                var codePaths = filePaths.Where(p => p.IndexOf("_" + symbol.Code + "_") > 0);
                 int left = codePaths.Count();
 
                 DateTime from = DateTime.MaxValue;
@@ -1616,10 +2071,6 @@ namespace Ajuro.IEX.Downloader.Services
                 foreach (var codePath in codePaths)
                 {
                     left--;
-                    if (simbsLeft > 438)
-                    {
-                        //continue;
-                    }
                     var dateString = codePath.Substring(codePath.LastIndexOf("_") + 1);
                     dateString = dateString.Substring(0, dateString.LastIndexOf("."));
                     dateString = dateString.Substring(6, 2) + "-" + dateString.Substring(4, 2) + "-" + dateString.Substring(0, 4);
@@ -1634,6 +2085,9 @@ namespace Ajuro.IEX.Downloader.Services
                     }
 
                     var dataString = File.ReadAllText(codePath);
+                    
+                    
+                    
                     var count = 0;
                     var itemsLength = 0;
                     try
@@ -1652,7 +2106,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if (left == 0 || left % 50 == 0)
                     {
-                        Console.WriteLine($" Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { code }, Samples: { count } ");
+                        Console.WriteLine($" File Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
                     }
                     report.Details.Add(new IntradayDetail()
                     {
@@ -1660,27 +2114,67 @@ namespace Ajuro.IEX.Downloader.Services
                         Samples = count, // Ticks count from intraday files
                         Total = itemsLength,
                         Count = 1,
-
                     });
                 }
-
                 // Aggregate daily results
                 report.From = from;
                 report.To = to;
                 report.Count = codePaths.Count();
-                reports.Add(report);
-            }
+        }
 
-            // Saving action results
-            if (reportingOptions.Codes.Count() <= 1 || reportingOptions.Codes.Length == Static.SP500.Length)
-            {
-                var success = await SaveResult(selector, result, startTime, resultKey, reports, reportingOptions.ReplaceDestinationIfExists, downloaderOptions.SymbolHistoryFolder, new SaveResultsOptions
+        private void CountFromDb(BaseSelector selector, string[] filePaths, Symbol symbol, DateTime date, int simbsLeft, DownloadIntradayReport report)
+        {
+            var endDate = new DateTime(date.Month == 12 ?  date.Year +1  : date.Year,  date.Month == 12 ?  1  : date.Month +1,1);
+                var codePaths = _tickRepository.All().Where(p=>p.SymbolId == symbol.SymbolId && p.Date >= date &&  p.Date < endDate);
+                int left = codePaths.Count();
+
+                DateTime from = DateTime.MaxValue;
+                DateTime to = DateTime.MinValue;
+                foreach (var codePath in codePaths)
                 {
-                    SaveToDb = true,
-                    SaveToFile = true
-                });
-            }
-            return reports;
+                    left--;
+                    var fileDate = codePath.Date;
+                    if (fileDate < from)
+                    {
+                        from = fileDate;
+                    }
+                    if (to < fileDate)
+                    {
+                        to = fileDate;
+                    }
+
+                    var dataString = codePath.Serialized;
+                    
+                    
+                    
+                    var count = 0;
+                    var itemsLength = 0;
+                    try
+                    {
+                        if(string.IsNullOrEmpty(dataString))
+                        itemsLength = dataString.Split("],[").Length;
+                    }
+                    catch (Exception ex)
+                    {
+                        new Info(selector, -1, ex, string.Empty);
+                        itemsLength = -1;
+                    }
+                    if (left == 0 || left % 50 == 0)
+                    {
+                        Console.WriteLine($" DB Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
+                    }
+                    report.Details.Add(new IntradayDetail()
+                    {
+                        Seconds = (new DateTimeOffset(date)).ToUnixTimeSeconds(),
+                        Samples = count, // Ticks count from intraday files
+                        Total = itemsLength,
+                        Count = 1,
+                    });
+                }
+                // Aggregate daily results
+                report.From = from;
+                report.To = to;
+                report.Count = codePaths.Count();
         }
 
         public async Task<IEnumerable<FileResourceGroup>> ListFiles(BaseSelector selector, ReportingOptions reportingOptions)
@@ -1695,10 +2189,14 @@ namespace Ajuro.IEX.Downloader.Services
             dailyGraphsFiles = Directory.GetFiles(downloaderOptions.DailyGraphsFolder);
             dailyGraphsFiles = dailyGraphsFiles.OrderBy(p => p).ToArray();
 
-            string[] symbolHistoryFiles;
-            symbolHistoryFiles = Directory.GetFiles(downloaderOptions.SymbolHistoryFolder);
-            symbolHistoryFiles = symbolHistoryFiles.OrderBy(p => p).ToArray();
+            string[] countFiles;
+            countFiles = Directory.GetFiles(downloaderOptions.CountsFolder);
+            countFiles = countFiles.OrderBy(p => p).ToArray();
 
+            string[] monthlyParsedFiles;
+            monthlyParsedFiles = Directory.GetFiles(downloaderOptions.MonthlyParsedFiles);
+            monthlyParsedFiles = monthlyParsedFiles.OrderBy(p => p).ToArray();
+            
             string[] largeResultsFiles;
             largeResultsFiles = Directory.GetFiles(downloaderOptions.LargeResultsFolder);
             largeResultsFiles = largeResultsFiles.OrderBy(p => p).ToArray();
@@ -1729,12 +2227,25 @@ namespace Ajuro.IEX.Downloader.Services
                 });
             }
 
-            foreach (var path in symbolHistoryFiles.Take(50))
+            foreach (var path in countFiles.Take(50))
             {
                 var fileInfo = new FileInfo(path);
                 result.Add(new FileResourceGroup
                 {
-                    Category = "DailySymbolHistory",
+                    Category = "CountFiles",
+                    // Folder = downloaderOptions.DailySymbolHistoryFolder,
+                    Name = fileInfo.Name,
+                    Length = fileInfo.Length,
+                    LastWrite = Static.SecondsFromDateTime(fileInfo.LastWriteTimeUtc)
+                });
+            }
+
+            foreach (var path in monthlyParsedFiles.Take(50))
+            {
+                var fileInfo = new FileInfo(path);
+                result.Add(new FileResourceGroup
+                {
+                    Category = "MonthlyParsedFiles",
                     // Folder = downloaderOptions.DailySymbolHistoryFolder,
                     Name = fileInfo.Name,
                     Length = fileInfo.Length,
@@ -1757,7 +2268,7 @@ namespace Ajuro.IEX.Downloader.Services
             return result;
         }
 
-        public async Task<List<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions)
+        public async Task<IEnumerable<DownloadIntradayReport>> GetFileRecordsByReportingOptions(BaseSelector selector, ReportingOptions reportingOptions)
         {
             List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
             string[] FilePaths;
@@ -1942,7 +2453,7 @@ namespace Ajuro.IEX.Downloader.Services
             string[] FilePaths = null;
 
             var symbol = await _symbolRepository.GetByIdAsync(resultSelector.SymbolId);
-            FilePaths = Directory.GetFiles(downloaderOptions.SymbolHistoryFolder, resultSelector.SymbolId > 0 ? symbol.Code + ".json" : "*.json");
+            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, resultSelector.SymbolId > 0 ? symbol.Code + ".json" : "*.json");
             FilePaths = FilePaths.OrderBy(p => p).ToArray();
 
             var filesCount = FilePaths.Count();

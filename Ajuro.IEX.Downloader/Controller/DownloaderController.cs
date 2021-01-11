@@ -20,11 +20,15 @@ namespace Ajuro.Security.Controllers.v3
     private static IConfiguration Configuration { get; set; }
 
     private readonly IUserRepository _userRepository;
+
     private readonly ISymbolRepository _symbolRepository;
+
     // private readonly IAlertRepository _alertRepository;
     private readonly ITickRepository _tickRepository;
+
     // private readonly IDailyRepository _dailyRepository;
     private readonly IDownloaderService _downloaderService;
+
     // private readonly ILogRepository _logRepository;
     private readonly IResultRepository _resultRepository;
 
@@ -39,7 +43,7 @@ namespace Ajuro.Security.Controllers.v3
       IDownloaderService downloaderService,
       // ILogRepository logRepository,
       IResultRepository resultRepository
-      )
+    )
     {
       _userRepository = userRepository;
       _symbolRepository = symbolRepository;
@@ -62,10 +66,11 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-        #region FRAGMENTS
+    #region FRAGMENTS
 
-        [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
-    public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost, double save, int margin, int skip, int take)
+    [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
+    public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost,
+      double save, int margin, int skip, int take)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
 
@@ -87,9 +92,9 @@ namespace Ajuro.Security.Controllers.v3
       });
     }
 
-        #endregion
+    #endregion
 
-        [HttpGet("api/[controller]/{symbolId}/collect")]
+    [HttpGet("api/[controller]/{symbolId}/collect")]
     public async Task<JsonResult> GetSymbol(int symbolId)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -100,171 +105,199 @@ namespace Ajuro.Security.Controllers.v3
         var result = await _downloaderService.Pool(selector, symbol, date);
         return Json(result);
       }
+
       return Json(null);
-        }
+    }
 
-        [HttpPost("download")]
-        public async Task<IActionResult> Download(DownloadOptions options)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            // var reports = await _downloaderService.Download(selector, options);
-            return null;// Content(JsonConvert.SerializeObject(reports), "application/json");
-        }
+    [HttpPost("download")]
+    public async Task<IActionResult> Download(DownloadOptions options)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      // var reports = await _downloaderService.Download(selector, options);
+      return null; // Content(JsonConvert.SerializeObject(reports), "application/json");
+    }
 
-        private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES};
+    private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES};
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth/processType/{processType}")]
-        public async Task<IActionResult> AllForMonth(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = fromDate,
-                Take = take,
-                ReplaceDestinationIfExists = replaceDestinationIfExists,
-                GoBackward = isBackward,
-                ProcessType = processType,
-                SkipDailySummaryCaching = replaceDestinationIfExists,
-                SkipMonthlySummaryCaching = replaceDestinationIfExists,
-                IsMonthly = IsMonthly.Contains(processType)
-            };
-            var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForMonth);
-            return Json(results);
-        }
+    [HttpGet(
+      "code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth/processType/{processType}")]
+    public async Task<IActionResult> AllForMonth(string code, DateTime fromDate, int take, DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+        Take = take,
+        Codes = code.Split(',', StringSplitOptions.RemoveEmptyEntries),
+        ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+        SkipDailySummaryCaching = replaceDestinationIfExists,
+        SkipMonthlySummaryCaching = replaceDestinationIfExists,
+        IsMonthly = IsMonthly.Contains(processType)
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForMonth);
+      return Json(results);
+    }
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForAll/processType/{processType}")]
-        public async Task<IActionResult> AllForAll(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-          var selector = new BaseSelector(CommandSource.Endpoint);
-          ReportingOptions reportingOptions = new ReportingOptions()
-          {
-            FromDate = fromDate,
-            Take = take,
-            ReplaceDestinationIfExists = replaceDestinationIfExists,
-            GoBackward = isBackward,
-            ProcessType = processType,
-          };
-          var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForAll);
-          return Json(results);
-        }
+    [HttpGet(
+      "code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForAll/processType/{processType}")]
+    public async Task<IActionResult> AllForAll(string code, DateTime fromDate, int take, DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+        Take = take,
+        Codes = code.Split(',', StringSplitOptions.RemoveEmptyEntries),
+        ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForAll);
+      return Json(results);
+    }
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForDay/processType/{processType}")]
-        public async Task<IActionResult> AllForDay(string code, DateTime fromDate, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = fromDate,
-                Take = take,
-                ReplaceDestinationIfExists = replaceDestinationIfExists,
-                GoBackward = isBackward,
-                ProcessType = processType,
-            };
-            var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForDay);
-            return Json(results);
-        }
+    [HttpGet(
+      "code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForDay/processType/{processType}")]
+    public async Task<IActionResult> AllForDay(string code, DateTime fromDate, int take, DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+        Take = take,
+        ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForDay);
+      return Json(results);
+    }
 
-        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMonth/processType/{processType}")]
-        public async Task<IActionResult> CodeForMonth(string code, DateTime selectedDay, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = selectedDay,
-                Take = take,
-                Code = code,
-                ReplaceDestinationIfExists = replaceDestinationIfExists,
-                GoBackward = isBackward,
-                ProcessType = processType,
-            };
-            var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForMonth);
-            return Json(results);
-        }
+    [HttpGet(
+      "code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMonth/processType/{processType}")]
+    public async Task<IActionResult> CodeForMonth(string code, DateTime selectedDay, int take, DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = selectedDay,
+        Take = take,
+        Code = code,
+        ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForMonth);
+      return Json(results);
+    }
 
-        [HttpGet("code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForDay/processType/{processType}")]
-        public async Task<IActionResult> CodeForDay(string code, DateTime selectedDay, int take, string source, ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = selectedDay,
-                Take = take,
-                Code = code,
-                ReplaceDestinationIfExists = replaceDestinationIfExists,
-                GoBackward = isBackward,
-                ProcessType = processType,
-            };
-            var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForDay);
-            return Json(results);
-        }
+    [HttpGet(
+      "code/{code}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForDay/processType/{processType}")]
+    public async Task<IActionResult> CodeForDay(string code, DateTime selectedDay, int take, DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = selectedDay,
+        Take = take,
+        Code = code,
+        ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForDay);
+      return Json(results);
+    }
 
-        [HttpGet(
-          "code/{codes}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMissingDays/processType/{processType}")]
-        public async Task<IActionResult> CodeForMissingDays(string code, DateTime selectedDay, int take, string source,
-          ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
-        {
-          var selector = new BaseSelector(CommandSource.Endpoint);
-          ReportingOptions reportingOptions = new ReportingOptions()
-          {
-            FromDate = selectedDay,
-            Code = code,
-            Take = take,
-            // ReplaceDestinationIfExists = replaceDestinationIfExists,
-            GoBackward = isBackward,
-            ProcessType = processType,
-          };
-          var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForDay);
-          return Json(results);
-        }
+    [HttpGet(
+      "code/{codes}/from/{selectedDay}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/codeForMissingDays/processType/{processType}")]
+    public async Task<IActionResult> CodeForMissingDays(string code, DateTime selectedDay, int take,
+      DataSourceType source,
+      ProcessType processType, bool replaceDestinationIfExists, bool isBackward)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = selectedDay,
+        Code = code,
+        Take = take,
+        // ReplaceDestinationIfExists = replaceDestinationIfExists,
+        GoBackward = isBackward,
+        ProcessType = processType,
+      };
+      var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.CodeForDay);
+      return Json(results);
+    }
 
-        #region REPORTING
-        /* ===== --- ===== --- ===== */
+    #region REPORTING
 
-        /*static*/
-        DateTime _lastDate = DateTime.MinValue;
+    /* ===== --- ===== --- ===== */
+
+    /*static*/
+    DateTime _lastDate = DateTime.MinValue;
+
     /*static*/
     int _lastSymbol;
 
-        [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/list/files/content")]
-        public async Task<object> ListFiles_WithContent_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code, string source)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = fromDate,
-                Take = take,
-                Code = code,
-            };
-            return await _downloaderService.ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, reportingOptions);
-        }
+    [HttpGet("code/{code}/from/{fromDate}/take/{take}/source/{source}/list/files/content")]
+    public async Task<object> ListFiles_WithContent_PerCode_OnTheGivenMonth(DateTime fromDate, int take, string code,
+      DataSourceType source)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+        Take = take,
+        Code = code,
+      };
+      return await _downloaderService.ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, reportingOptions);
+    }
 
-        // "downloader/from/2020-03-01/source/file/avoidReadingFilesContent/true/count/files"
-        [HttpGet("source/{source}/useMonthlySummaryCaching/{skipMonthlySummaryCaching}/avoidReadingFilesContent/{avoidReadingFilesContent}/count/files")]
-        public async Task<object> CountFiles(DateTime fromDate, string source, bool avoidReadingFilesContent, bool skipMonthlySummaryCaching)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = fromDate,
-                // SkipMonthlySummaryCaching = skipMonthlySummaryCaching, // Will sum from CountHistoricalFiles instead of counting 
-                AvoidReadingFilesContent = avoidReadingFilesContent
-            };
-            // return await _downloaderService.CountFiles(selector, reportingOptions);
-            return await _downloaderService.RF_COUNT_FILES_From_CountHistoricalFiles(selector, reportingOptions);
-        }
+    // "downloader/from/2020-03-01/source/file/avoidReadingFilesContent/true/count/files"
+    [HttpGet(
+      "source/{source}/useMonthlySummaryCaching/{skipMonthlySummaryCaching}/avoidReadingFilesContent/{avoidReadingFilesContent}/count/files")]
+    public async Task<object> CountFiles(DateTime fromDate, DataSourceType source, bool avoidReadingFilesContent,
+      bool skipMonthlySummaryCaching)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+        // SkipMonthlySummaryCaching = skipMonthlySummaryCaching, // Will sum from CountHistoricalFiles instead of counting 
+        AvoidReadingFilesContent = avoidReadingFilesContent
+      };
+      // return await _downloaderService.CountFiles(selector, reportingOptions);
+      return await _downloaderService.RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(selector, reportingOptions);
+    }
 
-        [HttpGet("from/{fromDate}/source/{source}/count/files")]
-        public async Task<object> CountFiles_PerCode_OnTheGivenMonth(DateTime fromDate, string source)
-        {
-            var selector = new BaseSelector(CommandSource.Endpoint);
-            ReportingOptions reportingOptions = new ReportingOptions()
-            {
-                FromDate = fromDate,
-            };
-            return await _downloaderService.RF_COUNT_FILES_From_CountHistoricalFiles(selector, reportingOptions);
-        }
+    [HttpGet("from/{fromDate}/source/{source}/count/files")]
+    public async Task<object> CountFiles_PerCode_OnTheGivenMonth(DateTime fromDate, DataSourceType source)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      ReportingOptions reportingOptions = new ReportingOptions()
+      {
+        Source = source,
+        FromDate = fromDate,
+      };
+      return await _downloaderService.RF_MONTHLY_SUMMARIES_From_CountHistoricalFiles(selector, reportingOptions);
+    }
 
-        [HttpGet("{daysBefore}/database/downloads")]
+    [HttpGet("{daysBefore}/database/downloads")]
     public async Task<object> GetCompletion([FromQuery] string action, int daysBefore)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -300,20 +333,20 @@ namespace Ajuro.Security.Controllers.v3
       var logEntryBreakdown = new LogEntryBreakdown("DownloadsReport");
       var ticks = _tickRepository
         .GetAll()
-        .Where(p => p.Seconds > 0 && p.SymbolId != 0 && (new [] { 1, 17, 3, 5 }).Contains(p.SymbolId))
+        .Where(p => p.Seconds > 0 && p.SymbolId != 0 && (new[] {1, 17, 3, 5}).Contains(p.SymbolId))
         .GroupBy(p => p.SymbolId)
         .OrderByDescending(p => p.Count())
         // .Take(5)
         .Select(p => new DownloadIntradayReport()
-        {
-          SymbolId = p.Key,
-          Code = p.Min(x => x.Symbol),
-          From = p.Min(x => x.Date),
-          To = p.Max(x => x.Date),
-          Count = p.Count(),
-          Details = new List<IntradayDetail>()
-        }
-      );
+          {
+            SymbolId = p.Key,
+            Code = p.Min(x => x.Symbol),
+            From = p.Min(x => x.Date),
+            To = p.Max(x => x.Date),
+            Count = p.Count(),
+            Details = new List<IntradayDetail>()
+          }
+        );
       var tl = ticks.ToList();
       foreach (var symbol in tl)
       {
@@ -324,7 +357,8 @@ namespace Ajuro.Security.Controllers.v3
           {
             var records = _tickRepository
               // .GetByDayAndSymbolId(symbol.SymbolId, seconds)
-              .GetByRangeAndSymbolId(symbol.SymbolId, (new DateTimeOffset(symbol.From)).ToUnixTimeSeconds(), (new DateTimeOffset(symbol.To)).ToUnixTimeSeconds())
+              .GetByRangeAndSymbolId(symbol.SymbolId, (new DateTimeOffset(symbol.From)).ToUnixTimeSeconds(),
+                (new DateTimeOffset(symbol.To)).ToUnixTimeSeconds())
               .GroupBy(p => p.Seconds)
               .Select(p => new IntradayDetail()
               {
@@ -365,11 +399,11 @@ namespace Ajuro.Security.Controllers.v3
       return tl;
     }
 
-        #endregion
+    #endregion
 
 #if DEBUG
 
-        [HttpGet("aggregate/fromDb/{replace}")]
+    [HttpGet("aggregate/fromDb/{replace}")]
     public async Task<List<Tick>> AggregateFromDb(bool fromFiles, bool replace)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
@@ -395,6 +429,7 @@ namespace Ajuro.Security.Controllers.v3
       {
         report = await _downloaderService.FetchDate(selector, symbol, date);
       }
+
       return Json(report);
     }
 
@@ -420,11 +455,13 @@ namespace Ajuro.Security.Controllers.v3
           {
             continue;
           }
+
           if (date > _lastDate)
           {
             _lastDate = date;
             _lastSymbol = 0;
           }
+
           left--;
           if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
           {
@@ -437,31 +474,36 @@ namespace Ajuro.Security.Controllers.v3
             {
               break;
             }
+
             if (_lastSymbol >= index)
             {
               continue;
             }
+
             if (index > _lastSymbol)
             {
               _lastSymbol = index;
             }
+
             var symbol = symbols[index];
             if (!Static.SP500.Contains(symbol.Code))
             {
               continue;
             }
+
             symbolIndex--;
             Console.WriteLine("Downloading... " + date.ToShortDateString() + " " + index);
             // StockReport report = null;
             // var stringData = 
             await _downloaderService.DownloadCodeForDay(selector, new DownloadOptions()
             {
-              SymbolIds = new [] { symbol.SymbolId },
-              Dates = new [] { date },
+              SymbolIds = new[] {symbol.SymbolId},
+              Dates = new[] {date},
             });
           }
         }
       }
+
       symbolIndex = symbols.Count;
       // await _downloaderService.GetAllHistorical(false); // Cascade to next action
       return reports;
@@ -469,7 +511,8 @@ namespace Ajuro.Security.Controllers.v3
 #endif
 
     [HttpPost("fragments/{token}/{mode}")]
-    public async Task<IEnumerable<Sample>> GetFragmentsPost([FromBody] ResultSelector resultSelector, string token, int mode)
+    public async Task<IEnumerable<Sample>> GetFragmentsPost([FromBody] ResultSelector resultSelector, string token,
+      int mode)
     {
       var selector = new BaseSelector(CommandSource.Endpoint) {User = await _userRepository.GetByTokenAsync(token)};
       return await _downloaderService.CreateFragmentsFromDb(selector, resultSelector);
@@ -506,6 +549,7 @@ namespace Ajuro.Security.Controllers.v3
       {
         return Json(null);
       }
+
       // var l = _symbolRepository.All().Where(p => p.Name.Contains("oeing")).ToList();
       var symbol = _symbolRepository.All().FirstOrDefault(p => p.SymbolId == symbolId);
       if (symbol != null)
@@ -513,6 +557,7 @@ namespace Ajuro.Security.Controllers.v3
         var result = await _downloaderService.Pool(selector, symbol, date);
         return Json(result);
       }
+
       return Json(null);
     }
 
@@ -530,6 +575,7 @@ namespace Ajuro.Security.Controllers.v3
           reports.AddRange(report);
         }
       }
+
       return Json(reports);
     }
 
@@ -548,6 +594,7 @@ namespace Ajuro.Security.Controllers.v3
         System.Threading.Thread.Sleep(500);
         items += 1;
       }
+
       return Json(items);
     }
 
