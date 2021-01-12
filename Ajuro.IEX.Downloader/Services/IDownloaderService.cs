@@ -168,7 +168,7 @@ namespace Ajuro.IEX.Downloader.Services
             LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
 #else
             DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
-            SymbolHistoryFolder = @"C:\PRO\EasyStockData\SymbolHistory";
+            MonthlyParsedFiles = @"C:\PRO\EasyStockData\SymbolHistory";
             DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs";
             LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults";
 #endif

@@ -594,7 +594,7 @@ namespace Ajuro.IEX.Downloader.Services
                         Save_File_If_Missing_And_Nonempty = true
                     }, // Only save files on local
 #else
-                    IfFileMissingSave_DailySymbolHistoryFolder = false, // = date == DateTime.Today.AddDays(-1), // Only save yesturday
+                    // IfFileMissingSave_DailySymbolHistoryFolder = false, // = date == DateTime.Today.AddDays(-1), // Only save yesturday
 #endif
                     UpdateDbIfExists = false,
                     BuildDictionary = true
