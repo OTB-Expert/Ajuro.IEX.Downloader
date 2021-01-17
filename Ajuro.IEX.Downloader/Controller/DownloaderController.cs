@@ -117,7 +117,7 @@ namespace Ajuro.Security.Controllers.v3
       return null; // Content(JsonConvert.SerializeObject(reports), "application/json");
     }
 
-    private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES};
+    private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES, ProcessType.RF_UPLOAD_MONTHLY};
 
     [HttpGet(
       "code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth/processType/{processType}")]
@@ -136,7 +136,7 @@ namespace Ajuro.Security.Controllers.v3
         ProcessType = processType,
         SkipDailySummaryCaching = replaceDestinationIfExists,
         SkipMonthlySummaryCaching = replaceDestinationIfExists,
-        IsMonthly = IsMonthly.Contains(processType)
+        IsMonthly = IsMonthly.Contains(processType) // Will process first day of each month, even if that is in a weekend, because it will contain all the month data aggregated
       };
       var results = await _downloaderService.BulkProcess(selector, reportingOptions, ActionRange.AllForMonth);
       return Json(results);

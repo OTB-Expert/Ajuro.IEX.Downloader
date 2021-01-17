@@ -1005,77 +1005,8 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                 }
             }
-            
-            // What days will be processed
-            reportingOptions.Dates = new List<DateTime>();
-            var date = reportingOptions.FromDate.Date;
-            
-            // Process to the end of the month
-            if (date == DateTime.MinValue)
-            {
-                if (reportingOptions.GoBackward)
-                {
-                    date = DateTime.Today.AddDays(- 1);
-                }
-                else
-                {
-                    date = DateTime.Today.AddDays(- reportingOptions.Take);
-                }
-            }
-            
-            if (reportingOptions.Take == 1)
-            {
-                reportingOptions.Dates = new List<DateTime>(){ reportingOptions.FromDate }; // Most likely you only need one code at a time
-            }
-            else if (reportingOptions.Take == 0)
-            {
-                date = new DateTime(date.Year, date.Month, reportingOptions.GoBackward ? DateTime.DaysInMonth(date.Year, date.Month) : 1);
-                var month = date.Month;
-                while (month == date.Month && date < DateTime.Today) // Never save today file. Just to avoid skipping it next run
-                {
-                    if (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
-                    {
-                        date = date.AddDays(reportingOptions.GoBackward ? -1 : 1);
-                        continue; // skip weekends
-                    }
-                    reportingOptions.Dates.Add(new DateTime(date.Year, date.Month, date.Day));
-                    date = date.AddDays(reportingOptions.GoBackward ? -1 : 1);
-                }
-            }
-            else
-            {
-                if (reportingOptions.Take > 366)
-                {
-                    reportingOptions.Take = 366; // No more than a year
-                }
-                for (var i = reportingOptions.Take; i >= 0 && date < DateTime.Today; i--)
-                {
-                    if (!reportingOptions.IsMonthly && (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday))
-                    {
-                        date = date.AddDays(reportingOptions.GoBackward ? -1 : 1); // skip weekends
-                        continue;
-                    }
-                    reportingOptions.Dates.Add(new DateTime(date.Year, date.Month, date.Day));
-                    if (reportingOptions.IsMonthly)
-                    {
-                        var year = date.Year;
-                        var month = date.Month - (reportingOptions.GoBackward ? 1 : 0);
-                        if (month == 0)
-                        {
-                            year = year - 1;
-                            month = 12;
-                        }
-                        var days = DateTime.DaysInMonth(year, month);
-                        i += days - 1;
-                        date = date.AddDays(reportingOptions.GoBackward ? -days : days);
-                        date = date.AddDays(- date.Day + 1);
-                    }
-                    else
-                    {
-                        date = date.AddDays(reportingOptions.GoBackward ? -1 : 1);
-                    }
-                }
-            }
+
+            List<DateTime> dates = Static.CreateDatesRange(reportingOptions); // use it from reportingOptions.Dates
 
             var messages = new List<string>();
             var allCount = reportingOptions.Codes.Count() * reportingOptions.Dates.Count();
@@ -1105,7 +1036,7 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 foreach (var rdate in reportingOptions.Dates)
                 {
-                    if (rdate.DayOfWeek == DayOfWeek.Saturday || rdate.DayOfWeek == DayOfWeek.Sunday)
+                    if (!reportingOptions.IsMonthly && (rdate.DayOfWeek == DayOfWeek.Saturday || rdate.DayOfWeek == DayOfWeek.Sunday))
                     {
                         continue; // skip weekends
                     }
@@ -1266,9 +1197,9 @@ namespace Ajuro.IEX.Downloader.Services
 
                     if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_LIST)  
                     {   
-                        if (reportingOptions.Dates.Count > 1 || reportingOptions.Codes.Length > 1)
+                        if (reportingOptions.Dates.Count > 1 && reportingOptions.Codes.Length > 1)
                         {
-                            return new List<object> {"Please restrict to one date or to one code"};
+                           return new List<object> {"Please restrict to one date or to one code"};
                         } 
                         // Takes tens of minutes per month for all symbols
                         var result = await ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
@@ -1752,6 +1683,7 @@ namespace Ajuro.IEX.Downloader.Services
                         p.SymbolId == symbol.SymbolId 
                         );
                     var exists = existentTick != null;
+                    new Info(selector, symbolId, $@"Date: { fileDate.ToString("yyyy-MM-dd") }, Code: {symbol.Code}, Progress: S:{ simbsLeft }/{ Static.SP500.Length } F:{ left }/{codePaths.Count()}, Status: { existentTick?.TickId } ");
                     if (exists)
                     {
                         if (reportingOptions.ReplaceDestinationIfExists)
@@ -1969,7 +1901,10 @@ namespace Ajuro.IEX.Downloader.Services
                             + (date > DateTime.MinValue ? "_" + date.ToString("yyyyMMdd") : string.Empty);
             var destinationFile = Path.Join(downloaderOptions.CountsFolder, resultKey + ".json");
             // Try to recover it from disk
-            if (!reportingOptions.SkipDailySummaryCaching && File.Exists(destinationFile))
+            if (reportingOptions.Source != DataSourceType.Db &&
+                !reportingOptions.ReplaceDestinationIfExists && // Trying to rewrite a selected range of symbols will not succeed but will return the evaluated symbols instead of their caching
+                !reportingOptions.SkipDailySummaryCaching && 
+                File.Exists(destinationFile))
             {
                 var fileContent = File.ReadAllText(destinationFile);
                 var data = (List<DownloadIntradayReport>)JsonConvert.DeserializeObject<List<DownloadIntradayReport>>(fileContent);
@@ -1982,7 +1917,7 @@ namespace Ajuro.IEX.Downloader.Services
 
             // Try to recover it from DB
             var result = _resultRepository.GetAllByKey(resultKey).FirstOrDefault(); // Keep autside for updates
-            if (!reportingOptions.SkipDailySummaryCaching && !reportingOptions.ReplaceDestinationIfExists)
+            if (reportingOptions.Source != DataSourceType.Db && !reportingOptions.ReplaceDestinationIfExists && !reportingOptions.SkipDailySummaryCaching && !reportingOptions.ReplaceDestinationIfExists)
             {
                 if (result != null)
                 {
@@ -2013,7 +1948,11 @@ namespace Ajuro.IEX.Downloader.Services
             int simbsLeft = Static.SP500.Count();
             foreach (var code in Static.SP500)
             {
-                if (reportingOptions.Codes.Length > 0 && !reportingOptions.Codes.Contains(code) && code != reportingOptions.Code)
+                if (
+                    // reportingOptions.Codes.Length > 0 && 
+                    (reportingOptions.Codes.Length > 0 && !reportingOptions.Codes.Contains(code)) || // Is not in selected range is a range was selected
+                    (!string.IsNullOrEmpty(reportingOptions.Code) && code != reportingOptions.Code) // Is not the chosen code is any is chosen
+                    )
                 {
                     continue;
                 }
