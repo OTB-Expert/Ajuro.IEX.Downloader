@@ -65,7 +65,7 @@ namespace Ajuro.Security.Controllers.v3
 #endif
       });
     }
-
+    
     #region FRAGMENTS
 
     [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
