@@ -433,6 +433,14 @@ namespace Ajuro.Security.Controllers.v3
       return Json(report);
     }
 
+    [HttpGet("update/today")]
+    public async Task<JsonResult> UpdateTodayFromIex()
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      var report = await _downloaderService.UpdateTodayFromIex(selector, null);
+      return Json(report);
+    }
+
     [HttpGet("collect/historical/{skip}/{days}/{fromFiles}")]
     public async Task<List<StockReport>> CollectHistoricalData(int days, int skip, int fromFiles)
     {

@@ -61,6 +61,7 @@ namespace Ajuro.IEX.Downloader.Services
         #region HISTORICAL DOWNLOAD
 
         Task<IEnumerable<object>> BulkProcess(BaseSelector selector, ReportingOptions options, ActionRange range);
+        Task<int> UpdateTodayFromIex(BaseSelector caseSelector, object o);
 
         #endregion
 
@@ -136,6 +137,8 @@ namespace Ajuro.IEX.Downloader.Services
         public bool Save_File_If_Missing_And_Nonempty { get; set; }
         public bool Skip_Checking_For_File { get;  set; }
         public bool Replace_File_If_Exists { get; set; }
+        public bool Save_As_Daily_Tick { get; set; }
+        
         public bool Skip_Logging { get; set; }
         
     }
