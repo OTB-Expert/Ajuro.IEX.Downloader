@@ -112,6 +112,7 @@ namespace Ajuro.IEX.Downloader.Services
         public bool SaveOnly { get;  set; }
         public bool SkipReportingToDb { get;  set; }
         public bool FromDbIfExists { get; set; }
+        public ProcessType ProcessType { get; set; }
 
         public DownloadOptions()
         {

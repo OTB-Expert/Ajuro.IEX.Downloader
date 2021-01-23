@@ -541,10 +541,15 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 FromDate = DateTime.Today,
                 Take = 1,
+                Codes = new string[]{},
                 ProcessType = ProcessType.Step_0_LoadToday_IntoDb,
                 IsAllCodes = true,
             };
 
+            if (downloaderOptions == null)
+            {
+                downloaderOptions = new DownloaderOptions();
+            }
             await BulkProcess(selector, reportingOptions, ActionRange.AllForDay);
             return 0;
         }
@@ -1095,12 +1100,13 @@ namespace Ajuro.IEX.Downloader.Services
                         {
                             SymbolIds = new[] {Static.SymbolIdFromCode[code]},
                             Dates = new[] {rdate},
+                            ProcessType = reportingOptions.ProcessType,
                             SaveOnly = true,
                             Step_01_Download_Options = new Download_Options()
                             {
                                 Skip_This_Step = false,
-                                Save_File_If_Missing_And_Nonempty = true,
-                                Skip_Loading_If_File_Exists = true,
+                                Save_File_If_Missing_And_Nonempty = reportingOptions.ProcessType != ProcessType.Step_0_LoadToday_IntoDb,
+                                Skip_Loading_If_File_Exists = reportingOptions.ProcessType == ProcessType.Step_1_DownloadFromIex,
                                 Skip_Checking_For_File = true,
                                 Skip_Logging = false,
                                 Replace_File_If_Exists = reportingOptions.ProcessType != ProcessType.Step_0_LoadToday_IntoDb && reportingOptions.ReplaceDestinationIfExists,
@@ -1401,7 +1407,7 @@ namespace Ajuro.IEX.Downloader.Services
             var url = "https://cloud.iexapis.com/stable/stock/" + symbolCode + "/chart/date/" + date.ToString("yyyyMMdd") + "?token=" + downloaderOptions.IEX_Token;
             var loggingUrl = "https://cloud.iexapis.com/stable/stock/" + symbolCode + "/chart/date/" + date.ToString("yyyyMMdd");
             string dataString = string.Empty;
-            if (string.IsNullOrEmpty(dataString) && File.Exists(fileName))
+            if (string.IsNullOrEmpty(dataString) && File.Exists(fileName) && options.ProcessType != ProcessType.Step_0_LoadToday_IntoDb)
             {
                 if (options.Step_01_Download_Options.Skip_Loading_If_File_Exists)
                 {
@@ -1414,7 +1420,7 @@ namespace Ajuro.IEX.Downloader.Services
             }
             if(string.IsNullOrEmpty(dataString))
             {
-                dataString = await GetJsonStream(url);
+                dataString = await Static.GetJsonStream(url);
                 if (!options.Step_01_Download_Options.Skip_Logging)
                 {
                     new Info(selector, symbolId, "  From IEX.Cloud... <a target='_blank' href='"+ url + "'>" + loggingUrl + "</a> Code: " + symbolCode + ", Date: " + date.ToString("yyyy-MM-dd") + ", Size: " + dataString.Length);
@@ -1464,7 +1470,7 @@ namespace Ajuro.IEX.Downloader.Services
                     record.Samples = values.Count();
                     await _tickRepository.UpdateAsync(record);
                     var tick = Static.Ticks.FirstOrDefault(p=>p.SymbolId == symbolId && p.Date == DateTime.Today.Date);
-                    record.Ticks = values.Select(p=> new long[] { (long)p[0], (long)p[1] });
+                    record.Ticks = values.Select(p=> new long[] { (long)p[0], Convert.ToInt64(((decimal)p[1])*100) });
                     if (tick == null)
                     {
                         Static.Ticks.Add(record);
@@ -1529,13 +1535,6 @@ namespace Ajuro.IEX.Downloader.Services
             return existentTick;
         }
 
-        public async Task<string> GetJsonStream(string url)
-        {
-            HttpClient client = new HttpClient();
-            HttpResponseMessage response = await client.GetAsync(url);
-            string content = await response.Content.ReadAsStringAsync();
-            return content;
-        }
         
         #endregion
         
