@@ -164,18 +164,18 @@ namespace Ajuro.IEX.Downloader.Services
         public DownloaderOptions()
         {
             IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74";
-#if Linux
+if(Static.IsLinux){
             DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
             MonthlyParsedFiles = @"/home/florin/PRO/Test3/Data/Historical/MonthlyParsedFiles";
             CountsFolder = @"/home/florin/PRO/Test3/Data/Historical/CountsHistory";
             DailyGraphsFolder = @"/home/florin/PRO/Test3/Data/Historical/DailyGraphs";
             LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
-#else
+}else{
             DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
             MonthlyParsedFiles = @"C:\PRO\EasyStockData\SymbolHistory";
             DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs";
             LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults";
-#endif
+}
         }
         
         public string IEX_Token { get; set; }
