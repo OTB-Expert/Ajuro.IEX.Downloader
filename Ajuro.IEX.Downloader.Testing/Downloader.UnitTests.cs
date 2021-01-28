@@ -33,19 +33,11 @@ namespace Ajuro.Core.Testing
             downloaderService = new DownloaderService
             (
                 UserRepositoryMock.Object,
-                AlpacaAccountRepositoryMock.Object,
-                AlpacaOrderRepositoryMock.Object,
-                AlpacaPositionRepositoryMock.Object,
-                CountryRepositoryMock.Object,
-                CurrencyRepositoryMock.Object,
                 SymbolRepositoryMock.Object,
                 AlertRepositoryMock.Object,
-                PositionRepositoryMock.Object,
                 DailyRepositoryMock.Object,
                 TickRepositoryMock.Object,
-                NewsRepositoryMock.Object,
                 EndpointRepositoryMock.Object,
-                SubscriptionRepositoryMock.Object,
                 LogRepositoryMock.Object,
                 ResultRepositoryMock.Object
             );
@@ -53,7 +45,7 @@ namespace Ajuro.Core.Testing
             downloaderService.SetOptions(new DownloaderOptions()
             {
                 DailySymbolHistoryFolder = "TestData\\DailySymbolHistory",
-                SymbolHistoryFolder = "TestData\\SymbolHistory",
+                MonthlyParsedFiles = "TestData\\SymbolHistory",
                 LargeResultsFolder = "TestData\\LargeResults"
             });
         }
@@ -76,6 +68,7 @@ namespace Ajuro.Core.Testing
             };
 
             LoggingObjectsItems.Clear();
+            /*
             var result = downloaderService.BuildDownloadSummary(selector, false).Result;
             Assert.IsTrue(result.Count == 505, "Unexpected number of symbols");
             var aaplSummary = result.FirstOrDefault(p => p.Code == "AAPL");
@@ -94,6 +87,7 @@ namespace Ajuro.Core.Testing
             Assert.IsTrue((int)aaplSummary.Details[1].Samples == 0, "Unexpected number of valid items");
             Assert.IsTrue(aaplSummary.Details[1].Total == 0, "Unexpected number of total items");
             Assert.IsTrue(aaplSummary.Details[1].Seconds == 1577836800, "Unexpected timestamp");
+            */
 
             // Some values are null or <= 0            
         }

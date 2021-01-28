@@ -28,19 +28,11 @@ namespace Ajuro.Core.Testing
             downloaderService = new DownloaderService
             (
                 UserRepositoryMock.Object,
-                AlpacaAccountRepositoryMock.Object,
-                AlpacaOrderRepositoryMock.Object,
-                AlpacaPositionRepositoryMock.Object,
-                CountryRepositoryMock.Object,
-                CurrencyRepositoryMock.Object,
                 SymbolRepositoryMock.Object,
                 AlertRepositoryMock.Object,
-                PositionRepositoryMock.Object,
                 DailyRepositoryMock.Object,
                 TickRepositoryMock.Object,
-                NewsRepositoryMock.Object,
                 EndpointRepositoryMock.Object,
-                SubscriptionRepositoryMock.Object,
                 LogRepositoryMock.Object,
                 ResultRepositoryMock.Object
             );
@@ -48,7 +40,7 @@ namespace Ajuro.Core.Testing
             downloaderService.SetOptions(new DownloaderOptions()
             {
                 DailySymbolHistoryFolder = "TestData\\DailySymbolHistory",
-                SymbolHistoryFolder = "TestData\\SymbolHistory",
+                MonthlyParsedFiles = "TestData\\SymbolHistory",
                 LargeResultsFolder = "TestData\\LargeResults"
             });
         }
