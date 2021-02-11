@@ -247,7 +247,11 @@ namespace Ajuro.Security.Controllers.v3
     
 
     [HttpPost("reporting/files")]
+<<<<<<< HEAD
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+=======
+    [EnsurePermission(Permissions.Controller.BaseViewKey)]
+>>>>>>> eabe4d93eb347bac8669519cfdfe0696193dabcf
     public async Task<IActionResult> GetDailyRecordsByReportingOptions([FromBody] ReportingOptions reportingOptions)
     {
       if (reportingOptions == null)
@@ -269,7 +273,11 @@ namespace Ajuro.Security.Controllers.v3
     }
 
     [HttpPost("reporting/daily")]
+<<<<<<< HEAD
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+=======
+    [EnsurePermission(Permissions.Controller.BaseViewKey)]
+>>>>>>> eabe4d93eb347bac8669519cfdfe0696193dabcf
     public async Task<IActionResult> GetFileRecordsByReportingOptions([FromBody] ReportingOptions reportingOptions)
     {
       if (reportingOptions == null)
@@ -294,9 +302,15 @@ namespace Ajuro.Security.Controllers.v3
     {
         return Json(message);
     }
+<<<<<<< HEAD
     
     [HttpPost("reporting/intraday")]
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+=======
+
+        [HttpPost("reporting/intraday")]
+    [EnsurePermission(Permissions.Controller.BaseViewKey)]
+>>>>>>> eabe4d93eb347bac8669519cfdfe0696193dabcf
     public async Task<IActionResult> GetLastDays([FromBody] ReportingOptions reportingOptions)
     {
       if (reportingOptions == null)
