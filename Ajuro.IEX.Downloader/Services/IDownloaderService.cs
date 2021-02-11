@@ -189,8 +189,7 @@ if(Static.IsLinux){
         /// Assuming a release to server, we need to keep the server clean. If you really need the files into production either generate them on local and upload them or set this flag to true.
         /// </summary>
         public bool ReleaseConfiguration_Allow_WriteFiles { get; set; } // Do not create local overwrites for this option.
-
-
+        
         /// <summary>
         /// Assumming this is a local enviroment where is ok to save files.
         /// </summary>

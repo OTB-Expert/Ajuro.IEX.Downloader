@@ -244,6 +244,79 @@ namespace Ajuro.Security.Controllers.v3
 
     #region REPORTING
 
+    
+
+    [HttpPost("reporting/files")]
+    // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+    public async Task<IActionResult> GetDailyRecordsByReportingOptions([FromBody] ReportingOptions reportingOptions)
+    {
+      if (reportingOptions == null)
+      {
+        return BadRequestJson("Unable to deserialize");
+      }
+      if (reportingOptions.SymbolId == 0 && string.IsNullOrEmpty(reportingOptions.Code))
+      {
+        return BadRequestJson("Either set the code or the symbolId, not both");
+      }
+      if (reportingOptions.Take == 0 && reportingOptions.TakeLast == 0)
+      {
+        return BadRequestJson("Either set the TakeLast or Take, to limit the results");
+      }
+
+      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var items = _downloaderService.GetFileRecordsByReportingOptions(selector, reportingOptions);
+      return Json(items);
+    }
+
+    [HttpPost("reporting/daily")]
+    // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+    public async Task<IActionResult> GetFileRecordsByReportingOptions([FromBody] ReportingOptions reportingOptions)
+    {
+      if (reportingOptions == null)
+      {
+        return BadRequestJson("Unable to deserialize");
+      }
+      if (reportingOptions.SymbolId == 0 && string.IsNullOrEmpty(reportingOptions.Code))
+      {
+        return BadRequestJson("Either set the code or the symbolId, not both");
+      }
+      if (reportingOptions.Take == 0 && reportingOptions.TakeLast == 0)
+      {
+        return BadRequestJson("Either set the TakeLast or Take, to limit the results");
+      }
+
+      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var items = _downloaderService.GetDailyRecordsByReportingOptions(selector, reportingOptions);
+      return Json(items);
+    }
+
+    private IActionResult BadRequestJson(string message)
+    {
+        return Json(message);
+    }
+    
+    [HttpPost("reporting/intraday")]
+    // [EnsurePermission(Permissions.Controller.BaseViewKey)]
+    public async Task<IActionResult> GetLastDays([FromBody] ReportingOptions reportingOptions)
+    {
+      if (reportingOptions == null)
+      {
+        return BadRequestJson("Unable to deserialize");
+      }
+      if (reportingOptions.SymbolId == 0 && string.IsNullOrEmpty(reportingOptions.Code))
+      {
+        return BadRequestJson("Either set the code or the symbolId, not both");
+      }
+      if (reportingOptions.Take == 0 && reportingOptions.TakeLast == 0)
+      {
+        return BadRequestJson("Either set the TakeLast or Take, to limit the results");
+      }
+
+      var selector = new BaseSelector(CommandSource.Endpoint) { };
+      var items = _downloaderService.GetIntradayRecordsByReportingOptions(selector, reportingOptions);
+      return Json(items);
+    }
+
     /* ===== --- ===== --- ===== */
 
     /*static*/
@@ -500,7 +573,7 @@ namespace Ajuro.Security.Controllers.v3
             }
 
             symbolIndex--;
-            Console.WriteLine("Downloading... " + date.ToShortDateString() + " " + index);
+            new Info(null, "Downloading... " + date.ToShortDateString() + " " + index);
             // StockReport report = null;
             // var stringData = 
             await _downloaderService.DownloadCodeForDay(selector, new DownloadOptions()
@@ -607,4 +680,21 @@ namespace Ajuro.Security.Controllers.v3
     }
 
   }
+#if NoSecure
+    internal class EnsurePermissionAttribute : Attribute
+    {
+        public EnsurePermissionAttribute(string name)
+        {
+
+        }
+    }
+
+    public class Permissions
+    {
+        public class Controller
+        {
+            public const string BaseViewKey = "FAKE";
+        }
+    }
+#endif
 }

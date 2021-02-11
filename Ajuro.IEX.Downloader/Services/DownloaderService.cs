@@ -193,7 +193,7 @@ namespace Ajuro.IEX.Downloader.Services
                 var ticksArray = values.Where(p => p.marketAverage.HasValue).Where(p => p.marketAverage.Value != -1).Select(p => new object[] { (Int64)(p.date.AddSeconds(ToSeconds(p.minute)).Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds, p.marketAverage.Value }).ToArray();
                 if (options.Step_01_Download_Options.Save_File_If_Missing_And_Nonempty && !File.Exists(destinationFile))
                 {
-                    File.WriteAllText(destinationFile, JsonConvert.SerializeObject(ticksArray));
+                    Static.WriteAllText(destinationFile, JsonConvert.SerializeObject(ticksArray));
                 }
                 return ticksArray;
             }
@@ -250,7 +250,7 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 catch (Exception ex)
                 {
-                    // Intentionally unhandled
+                    // Triggerally unhandled
                 }
 
                 if (symbol == null)
@@ -408,7 +408,7 @@ namespace Ajuro.IEX.Downloader.Services
                     {
                         var content = JsonConvert.SerializeObject(ticksArray);
                         new Info(selector, symbol.SymbolId, destinationName + " Size: " + content.Length);
-                        File.WriteAllText(destinationName, content);
+                        Static.WriteAllText(destinationName, content);
                     }
 
                     tickArrays.Add(ticksArray);
@@ -461,7 +461,7 @@ namespace Ajuro.IEX.Downloader.Services
                 {
                     if (saveResultsOptions.SaveToFile)
                     {
-                        File.WriteAllText(path, existentResult.TagString);
+                        Static.WriteAllText(path, existentResult.TagString);
                     }
                     if(saveResultsOptions.SaveToDb)
                     {
@@ -478,7 +478,7 @@ namespace Ajuro.IEX.Downloader.Services
                 catch (Exception ex)
                 {
                     new Info(selector, -1, ex, string.Empty);
-                    File.WriteAllText(path, existentResult.TagString);
+                    Static.WriteAllText(path, existentResult.TagString);
                 }
             }
             else
@@ -492,7 +492,7 @@ namespace Ajuro.IEX.Downloader.Services
                     {
                         if (saveResultsOptions.SaveToFile)
                         {
-                            File.WriteAllText(path, JsonConvert.SerializeObject(content));
+                            Static.WriteAllText(path, JsonConvert.SerializeObject(content));
                         }
                         if(saveResultsOptions.SaveToDb)
                         {
@@ -502,7 +502,7 @@ namespace Ajuro.IEX.Downloader.Services
                     catch (Exception ex)
                     {
                         new Info(selector, -1, ex, string.Empty);
-                        File.WriteAllText(path, JsonConvert.SerializeObject(content));
+                        Static.WriteAllText(path, JsonConvert.SerializeObject(content));
                     }
                 }
             }
@@ -867,7 +867,7 @@ namespace Ajuro.IEX.Downloader.Services
         {
 
             var logEntryBreakdown = new LogEntryBreakdown("PoolSymbolTicksOnDate");
-            // Console.WriteLine(data);
+            // new Info(null, data);
             StockEndpoint endpoint = null;
             bool tickExists = false;
             try
@@ -888,7 +888,7 @@ namespace Ajuro.IEX.Downloader.Services
 
                 if (ticksArray.Count() == 0)
                 {
-                    Console.WriteLine("NO tickes................ WHY ?");
+                    new Info(null, "NO tickes................ WHY ?");
                     new Info(selector, symbol.SymbolId, "Why there is no tick?");
 
                     return new StockReport
@@ -1438,7 +1438,7 @@ namespace Ajuro.IEX.Downloader.Services
                 {
                     try
                     {
-                        File.WriteAllText(fileName, dataString);
+                        Static.WriteAllText(fileName, dataString);
                     }
                     catch (Exception es)
                     {
@@ -1754,7 +1754,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     catch (Exception ex)
                     {
-                        // Intentionally unhandled
+                        // Triggerally unhandled
                     }
 
                     if (symbol == null)
@@ -1802,7 +1802,7 @@ namespace Ajuro.IEX.Downloader.Services
                         var itemsLength = 1;
                         if (left == 0 || left % 50 == 0)
                         {
-                            // Console.WriteLine(simbsLeft + " " + code + ": " + left);
+                            // new Info(null, simbsLeft + " " + code + ": " + left);
                         }
 
                         var existentTick =
@@ -1957,7 +1957,7 @@ namespace Ajuro.IEX.Downloader.Services
                 }
                 catch (Exception ex)
                 {
-                    // Intentionally unhandled
+                    // Triggerally unhandled
                 }
                 if (symbol == null)
                 {
@@ -1995,7 +1995,7 @@ namespace Ajuro.IEX.Downloader.Services
                     var itemsLength = 1;
                     if (left == 0 || left % 50 == 0)
                     {
-                        // Console.WriteLine(simbsLeft + " " + code + ": " + left);
+                        // Cnew Info(null, simbsLeft + " " + code + ": " + left);
                     }
                     report.Details.Add(new IntradayDetail()
                     {
@@ -2015,7 +2015,7 @@ namespace Ajuro.IEX.Downloader.Services
 
             if (!reportingOptions.Skip_Replacing_Monthly_SummaryCaching)
             {
-                File.WriteAllText(path, JsonConvert.SerializeObject(reports));
+                Static.WriteAllText(path, JsonConvert.SerializeObject(reports));
             }
 
             return reports;
@@ -2179,7 +2179,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if (left == 0 || left % 50 == 0)
                     {
-                        Console.WriteLine($" File Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
+                        new Info(null, $" File Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
                     }
                     report.Details.Add(new IntradayDetail()
                     {
@@ -2234,7 +2234,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if (left == 0 || left % 50 == 0)
                     {
-                        Console.WriteLine($" DB Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
+                        new Info(null, $" DB Left: { date.ToString("yyyy-MM-dd") },  Left: { simbsLeft }, Code: { symbol.Code }, Samples: { count } ");
                     }
                     report.Details.Add(new IntradayDetail()
                     {
@@ -2420,7 +2420,7 @@ namespace Ajuro.IEX.Downloader.Services
                     }
                     if (left == 0 || left % 50 == 0)
                     {
-                        Console.WriteLine(simbsLeft + " " + code + ": " + left);
+                        new Info(null, simbsLeft + " " + code + ": " + left);
                     }
                     report.Details.Add(new IntradayDetail()
                     {
