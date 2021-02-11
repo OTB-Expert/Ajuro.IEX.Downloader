@@ -11,10 +11,10 @@
     <PackageIconUrl>http://otb.expert/img/desk.png</PackageIconUrl>
     <PackageProjectUrl>http://otb.expert/projects/ajuro.iex.downloader</PackageProjectUrl>
     <PackageLicenseUrl></PackageLicenseUrl>
-    <Version>0.0.1</Version>
+    <Version>0.0.3</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <NeutralLanguage>en</NeutralLanguage>
-    <PackageReleaseNotes>Pre-release. Just for functional tests. Will not work in production.</PackageReleaseNotes>
+    <PackageReleaseNotes>Not for public use. Pre-release. Just for functional tests. Will not work in production.</PackageReleaseNotes>
     <Configurations>Debug;Release;Local;OTB;_Downloader</Configurations>
     <PackageLicenseFile>license.md</PackageLicenseFile>
   </PropertyGroup>
