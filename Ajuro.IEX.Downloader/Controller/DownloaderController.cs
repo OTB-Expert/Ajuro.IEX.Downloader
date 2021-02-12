@@ -681,6 +681,7 @@ namespace Ajuro.Security.Controllers.v3
 
   }
 #if NoSecure
+/*
     internal class EnsurePermissionAttribute : Attribute
     {
         public EnsurePermissionAttribute(string name)
@@ -696,5 +697,6 @@ namespace Ajuro.Security.Controllers.v3
             public const string BaseViewKey = "FAKE";
         }
     }
+    */
 #endif
 }

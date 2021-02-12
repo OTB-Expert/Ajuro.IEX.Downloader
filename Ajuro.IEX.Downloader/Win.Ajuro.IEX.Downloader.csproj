@@ -52,7 +52,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types\Ajuro.Net.Types.csproj" />
+    <ProjectReference Include="..\..\Ajuro.Net.Types\Ajuro.Net.Types\Win.Ajuro.Net.Types.csproj" />
   </ItemGroup>
 
 </Project>
