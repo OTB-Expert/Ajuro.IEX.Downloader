@@ -1864,7 +1864,7 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 // Regenerate counting
                 // Step 1 - optional - Generating the files. Prefer to have it in 2 steps with 2 file readings than using it from return
-                RF_MONTHLY_SUMMARIES_CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
+                await RF_MONTHLY_SUMMARIES_CountFiles_PerCode_OnTheGivenMonth(selector, reportingOptions);
             }
 
             // Step 2 - mandatory - Collecting the generated file paths in one go. Better than checking for each existence.
