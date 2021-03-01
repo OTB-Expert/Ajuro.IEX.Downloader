@@ -1257,10 +1257,10 @@ namespace Ajuro.IEX.Downloader.Services
                     }
 
                     if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_FILES_LIST)  
-                    {   
+                    {
                         if (reportingOptions.Dates.Count > 1 && reportingOptions.Codes.Length > 1)
                         {
-                           return new List<object> {"Please restrict to one date or to one code"};
+                            return new List<object> {"Please restrict to one date or to one code"};
                         } 
                         // Takes tens of minutes per month for all symbols
                         var result = await ListFiles_WithContent_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
@@ -1276,12 +1276,23 @@ namespace Ajuro.IEX.Downloader.Services
                         break; // Only run once. No muliple months
                     }
 
+                    if (reportingOptions.ProcessType == ProcessType.RF_MONTHLY_FILES_LIST)  
+                    {
+                        var result = await ListParsedMonthlyFiles_WithContent_PerCode(selector, new ReportingOptions()
+                        {
+                            FromDate = rdate,
+                            Code = code,
+                            Source = reportingOptions.Source,
+                            ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
+                        });
+                        results = result.Cast<object>().ToList();
+                        allCOdesAreProcessedAtOnce_skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                        break; // Only run once. No multiple months
+                    }
+
                     allLeft--;
                     datesLeft--;
-                    if (reportingOptions.ProcessType != ProcessType.RF_MONTHLY_SUMMARIES || rdate.Day == 1)
-                    {
-                        new Info(selector, 0, $" { reportingOptions.ProcessType } FOR Code: {code}, Date: { rdate.ToString("yyyy-MM-dd") }, Day: {datesLeft}/{datesCount }, Code {codesLeft}/{codesCount}, Left {allLeft}/{allCount}");
-                    }
                 }
                 codesLeft--;
             }
@@ -1660,6 +1671,50 @@ namespace Ajuro.IEX.Downloader.Services
         #endregion
 
         #region REPORTING
+
+        public async Task<IEnumerable<DownloadIntradayReport>> ListParsedMonthlyFiles_WithContent_PerCode(BaseSelector selector, ReportingOptions reportingOptions)
+        {
+            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
+
+            // Digest query object
+            if (string.IsNullOrEmpty(reportingOptions.Code))
+            {
+                return null;
+            }
+
+            if (reportingOptions.FromDate == null)
+            {
+                return null;
+            }
+
+            string[] filePaths;
+            var symbolCode = reportingOptions.Code;
+            var fileDateFilter = reportingOptions.FromDate == DateTime.MinValue ? "*" : reportingOptions.FromDate.ToString("yyyyMM") + "*";
+            filePaths = Directory.GetFiles(downloaderOptions.MonthlyParsedFiles, $"Parsed_{symbolCode}_*.json");
+            filePaths = filePaths.OrderBy(p => p).ToArray();
+            int i = 0;
+            foreach (var filePath in filePaths)
+            {
+                var fileContent = File.ReadAllText(filePath);
+                // var items = (List<TickArray>)JsonConvert.DeserializeObject<List<TickArray>>(fileContent);
+
+                var dateString = filePath.Substring(filePath.LastIndexOf("_") + 1);
+                dateString = dateString.Substring(0, dateString.LastIndexOf("."));
+                dateString = dateString.Substring(6, 2) + "-" + dateString.Substring(4, 2) + "-" + dateString.Substring(0, 4);
+                DateTime date = DateTime.Parse(dateString);
+
+                var report = new DownloadIntradayReport()
+                {
+                    intradayFile = i++,
+                    Code = symbolCode,
+                    From = date,
+                    Count = fileContent.Split("],[").Count(),
+                    Counts = fileContent.Length < 100 ? fileContent : fileContent.Substring(0,100)
+                };
+                reports.Add(report);
+            }
+            return reports;
+        }
 
         // RF_INTRADAY_FILES_LIST
         public async Task<IEnumerable<DownloadIntradayReport>> ListFiles_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
