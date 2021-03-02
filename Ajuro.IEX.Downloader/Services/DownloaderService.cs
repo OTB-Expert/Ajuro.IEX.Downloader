@@ -1276,6 +1276,26 @@ namespace Ajuro.IEX.Downloader.Services
                         break; // Only run once. No muliple months
                     }
 
+                    if (reportingOptions.ProcessType == ProcessType.RF_INTRADAY_TICKS_LIST)  
+                    {
+                        if (reportingOptions.Dates.Count > 1 && reportingOptions.Codes.Length > 1)
+                        {
+                            return new List<object> {"Please restrict to one date or to one code"};
+                        } 
+                        // Takes tens of minutes per month for all symbols
+                        var result = await ListTicks_WithContent_PerCode_OnTheGivenMonth(selector, new ReportingOptions()
+                        {
+                            FromDate = rdate,
+                            Code = code,
+                            Source = reportingOptions.Source,
+                            ReplaceDestinationIfExists = reportingOptions.ReplaceDestinationIfExists,
+                            Skip_RF_PER_CODE_SUMMARY_Caching = reportingOptions.Skip_RF_PER_CODE_SUMMARY_Caching
+                        });
+                        results = result.Cast<object>().ToList();
+                        allCOdesAreProcessedAtOnce_skipNeeded = true; // This action is per all symbols,so no need to run it for each of them
+                        break; // Only run once. No muliple months
+                    }
+
                     if (reportingOptions.ProcessType == ProcessType.RF_MONTHLY_FILES_LIST)  
                     {
                         var result = await ListParsedMonthlyFiles_WithContent_PerCode(selector, new ReportingOptions()
@@ -1758,6 +1778,50 @@ namespace Ajuro.IEX.Downloader.Services
                 };
                 reports.Add(report);
             }
+            return reports;
+        }
+
+        // RF_INTRADAY_TICKS_LIST
+        public async Task<IEnumerable<DownloadIntradayReport>> ListTicks_WithContent_PerCode_OnTheGivenMonth(BaseSelector selector, ReportingOptions reportingOptions)
+        {
+            List<DownloadIntradayReport> reports = new List<DownloadIntradayReport>();
+            // Digest query object
+            if (string.IsNullOrEmpty(reportingOptions.Code))
+            {
+                return null;
+            }
+
+            if (reportingOptions.FromDate == null)
+            {
+                return null;
+            }
+
+            reportingOptions.SymbolId = Static.SymbolIdFromCode[reportingOptions.Code];
+            var monthlyTick = _tickRepository.All()
+                .FirstOrDefault(p => 
+                    p.IsMonthly == true &&
+                     p.Date == reportingOptions.FromDate &&
+                     p.SymbolId == reportingOptions.SymbolId);
+            if (monthlyTick != null)
+            {
+                var ticks = JsonConvert.DeserializeObject<List<decimal[]>>(monthlyTick.Serialized);
+                var tickDays = ticks.GroupBy(p => (int)(p[0]*10 / Static.DaySeconds)).Select(p =>
+                    new
+                    {
+                        Seconds = p.Key * Static.DaySeconds,
+                        Values = p.Select(k => k[1])
+                    }).ToList();
+                var i = 1;
+                reports = tickDays.Select(p => new DownloadIntradayReport()
+                {
+                    intradayFile = i++,
+                    Code = reportingOptions.Code,
+                    From = Static.DateTimeFromSeconds(p.Seconds),
+                    Count = p.Values.Count(),
+                    Counts = p.Values
+                }).ToList();
+            }
+
             return reports;
         }
         
