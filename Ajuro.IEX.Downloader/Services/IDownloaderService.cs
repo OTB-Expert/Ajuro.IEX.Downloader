@@ -34,7 +34,7 @@ namespace Ajuro.IEX.Downloader.Services
 
         #region FRAGMENTS
         Task<IEnumerable<Sample>> CreateFragmentsFromFiles(BaseSelector selector, ResultSelector resultSelector);
-        Task<IEnumerable<Sample>> CreateFragmentsFromDb(BaseSelector selector, ResultSelector resultSelector);
+        Task<IEnumerable<Sample>> ListFragments_FromDb(BaseSelector selector, ResultSelector resultSelector);
         
         #endregion
         

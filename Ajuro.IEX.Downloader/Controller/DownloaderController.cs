@@ -68,13 +68,13 @@ namespace Ajuro.Security.Controllers.v3
     
     #region FRAGMENTS
 
-    [HttpGet("fragments/{symbolId}/{length}/{lost}/{from}/{to}/{save}/{margin}/{skip}/{take}")]
-    public async Task<IEnumerable<Sample>> GetFragmentsGet(string from, string to, int symbolId, int length, int lost,
+    [HttpGet("symbolId/{symbolId}/length/{length}/lost/{lost}/from/{from}/to/{to}/save/{save}/margin/{margin}/skip/{skip}/take/{take}/fragments")]
+    public async Task<IEnumerable<Sample>> ListFragments_FromDB_Get(string from, string to, int symbolId, int length, int lost,
       double save, int margin, int skip, int take)
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
 
-      return await _downloaderService.CreateFragmentsFromDb(selector, new ResultSelector()
+      return await _downloaderService.ListFragments_FromDb(selector, new ResultSelector()
       {
         From = DateTime.MinValue,
         To = DateTime.MaxValue,
@@ -591,12 +591,12 @@ namespace Ajuro.Security.Controllers.v3
     }
 #endif
 
-    [HttpPost("fragments/{token}/{mode}")]
-    public async Task<IEnumerable<Sample>> GetFragmentsPost([FromBody] ResultSelector resultSelector, string token,
+    [HttpPost("{token}/{mode}/fragments")]
+    public async Task<IEnumerable<Sample>> ListFragments_FromDb([FromBody] ResultSelector resultSelector, string token,
       int mode)
     {
       var selector = new BaseSelector(CommandSource.Endpoint) {User = await _userRepository.GetByTokenAsync(token)};
-      return await _downloaderService.CreateFragmentsFromDb(selector, resultSelector);
+      return await _downloaderService.ListFragments_FromDb(selector, resultSelector);
     }
 
 
