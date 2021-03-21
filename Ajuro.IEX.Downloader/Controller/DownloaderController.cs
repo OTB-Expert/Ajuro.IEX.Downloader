@@ -294,6 +294,48 @@ namespace Ajuro.Security.Controllers.v3
     {
         return Json(message);
     }
+
+    [HttpPost("list/missing/month/{date}/intraday/files")]
+    public async Task<IActionResult> GetMissingIntradays([FromBody] IEnumerable<Step1_Coverage_For_Day> knownItems, DateTime date)
+    {
+      var missingItems = await _downloaderService.MissingIntradaysForMonth(date, false, knownItems);
+      return Json(missingItems);
+    }
+
+    [HttpPost("download/missing/month/{date}/intraday/files")]
+    public async Task<IActionResult> DownloadMissingIntradays(DateTime date)
+    {
+      var missingItems = await _downloaderService.MissingIntradaysForMonth(date, true);
+      return Json(missingItems);
+    }
+
+    [HttpPost("list/missing/month/{date}/monthly/files")]
+    public async Task<IActionResult> ListMissingProcessedMonths([FromBody] IEnumerable<Step2_Coverage_For_Code> knownItems, DateTime date)
+    {
+      var missingItems = await _downloaderService.MissingProcessedMonths(date, false, knownItems);
+      return Json(missingItems);
+    }
+
+    [HttpPost("process/missing/month/{date}/monthly/files")]
+    public async Task<IActionResult> ProcessMissingProcessedMonths(DateTime date)
+    {
+      var missingItems = await _downloaderService.MissingProcessedMonths(date, true);
+      return Json(missingItems);
+    }
+
+    [HttpPost("list/missing/month/{date}/uploaded/files")]
+    public async Task<IActionResult> ListUploadedProcessedMonths([FromBody] IEnumerable<Step1_Coverage_For_Day> knownItems, DateTime date)
+    {
+      var missingItems = await _downloaderService.UploadProcessedMonths(date, false, knownItems);
+      return Json(missingItems);
+    }
+
+    [HttpPost("upload/missing/month/{date}/files")]
+    public async Task<IActionResult> UploadProcessedMonths(DateTime date)
+    {
+      var missingItems = await _downloaderService.UploadProcessedMonths(date, true);
+      return Json(missingItems);
+    }
     
     [HttpPost("reporting/intraday")]
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]
@@ -510,7 +552,7 @@ namespace Ajuro.Security.Controllers.v3
     public async Task<JsonResult> UpdateTodayFromIex()
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
-      var report = await _downloaderService.UpdateTodayFromIex(selector, null);
+      var report = await _downloaderService.UpdateTodayFromIex(selector);
       return Json(report);
     }
 

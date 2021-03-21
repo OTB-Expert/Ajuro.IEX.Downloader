@@ -298,6 +298,5 @@ namespace Ajuro.IEX.Downloader.Services
         }
         
         #endregion
-        
     }
 }

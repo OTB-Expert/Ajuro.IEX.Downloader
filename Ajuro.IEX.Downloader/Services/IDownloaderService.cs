@@ -61,7 +61,7 @@ namespace Ajuro.IEX.Downloader.Services
         #region HISTORICAL DOWNLOAD
 
         Task<IEnumerable<object>> BulkProcess(BaseSelector selector, ReportingOptions options, ActionRange range);
-        Task<int> UpdateTodayFromIex(BaseSelector caseSelector, object o);
+        Task<int> UpdateTodayFromIex(BaseSelector caseSelector);
 
         #endregion
 
@@ -95,6 +95,12 @@ namespace Ajuro.IEX.Downloader.Services
         Task<bool> SaveResult(BaseSelector selector, Result existentResult, long startTime, string key, object content, bool replaceIfExists, string backupFolder, SaveResultsOptions saveResultsOptions);
 
         #endregion
+
+        Task<IEnumerable<Step1_Coverage_For_Day>> MissingIntradaysForMonth(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
+
+        Task<IEnumerable<Step2_Coverage_For_Code>> MissingProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step2_Coverage_For_Code> knownItems = null);
+
+        Task<IEnumerable<Step1_Coverage_For_Day>> UploadProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
 
     }
 
