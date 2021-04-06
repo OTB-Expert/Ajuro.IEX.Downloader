@@ -145,7 +145,6 @@ namespace Ajuro.IEX.Downloader.Services
         public bool Skip_Checking_For_File { get;  set; }
         public bool Replace_File_If_Exists { get; set; }
         public bool Save_As_Daily_Tick { get; set; }
-        
         public bool Skip_Logging { get; set; }
         
     }
@@ -171,19 +170,23 @@ namespace Ajuro.IEX.Downloader.Services
         {
             IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74";
 if(Static.IsLinux){
+            DevHelpFilesFolder = @"/home/florin/PRO/Test3/Ajuro.Wiki/dev";
             DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
             MonthlyParsedFiles = @"/home/florin/PRO/Test3/Data/Historical/MonthlyParsedFiles";
             CountsFolder = @"/home/florin/PRO/Test3/Data/Historical/CountsHistory";
             DailyGraphsFolder = @"/home/florin/PRO/Test3/Data/Historical/DailyGraphs";
             LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
 }else{
+            DevHelpFilesFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
             DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
             MonthlyParsedFiles = @"C:\PRO\EasyStockData\SymbolHistory";
             DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs";
             LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults";
 }
         }
-        
+
+        public string DevHelpFilesFolder { get; set; }
+
         public string IEX_Token { get; set; }
         public string DailyGraphsFolder { get; set; }
         public string DailySymbolHistoryFolder { get; set; }
