@@ -67,8 +67,8 @@ namespace Ajuro.IEX.Downloader.Services
             List<Sample> samples = new List<Sample>();
             string[] FilePaths = null;
 
-            var symbol = await _symbolRepository.GetByIdAsync(resultSelector.SymbolId);
-            FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, resultSelector.SymbolId > 0 ? symbol.Code + ".json" : "*.json");
+                var symbol = await _symbolRepository.GetByIdAsync(resultSelector.SymbolId);
+                FilePaths = Directory.GetFiles(downloaderOptions.DailySymbolHistoryFolder, resultSelector.SymbolId > 0 ? symbol.Code + ".json" : "*.json");
             FilePaths = FilePaths.OrderBy(p => p).ToArray();
 
             var filesCount = FilePaths.Count();
