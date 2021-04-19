@@ -2597,14 +2597,18 @@ namespace Ajuro.IEX.Downloader.Services
                 var itemsLength = 0;
                 try
                 {
-                    if (string.IsNullOrEmpty(dataString))
+                    if (!string.IsNullOrEmpty(dataString))
+                    {
                         itemsLength = dataString.Split("],[").Length;
+                    }
                 }
                 catch (Exception ex)
                 {
                     new Info(selector, -1, ex, string.Empty);
                     itemsLength = -1;
                 }
+
+                count = itemsLength;
 
                 if (left == 0 || left % 50 == 0)
                 {

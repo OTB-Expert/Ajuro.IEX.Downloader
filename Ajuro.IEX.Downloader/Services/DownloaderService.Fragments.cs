@@ -159,7 +159,7 @@ namespace Ajuro.IEX.Downloader.Services
                     {
                         Code = symbol.Code,
                         SymbolId = symbol.SymbolId,
-                        Date = _userRepository.ReadableTimespan(values[0].T),
+                        Date = Static.ReadableTimespan(values[0].T),
                         Pick = data[anchor],
                         Entry = values[0],
                         Margin = values[resultSelector.Length],
