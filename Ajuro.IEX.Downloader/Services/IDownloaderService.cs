@@ -169,7 +169,7 @@ namespace Ajuro.IEX.Downloader.Services
         public DownloaderOptions()
         {
             IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74";
-if(Static.IsLinux && !Static.IsForcedWindows){
+if(Static.IsLinux || Static.IsForcedWindows){
             DevHelpFilesFolder = @"/home/florin/PRO/Test3/Ajuro.Wiki/dev";
             DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
             MonthlyParsedFiles = @"/home/florin/PRO/Test3/Data/Historical/MonthlyParsedFiles";
