@@ -1673,8 +1673,9 @@ namespace Ajuro.IEX.Downloader.Services
                     await _tickRepository.UpdateAsync(record);
                     var tick = Static.Ticks.FirstOrDefault(p =>
                         p.SymbolId == symbolId && p.Date == DateTime.Today.Date);
-                    record.Ticks = values.Select(p => new long[]
-                        {(long) p[0], Convert.ToInt64(((decimal) p[1]) * 100)});
+                    // LONG PRICE * 1000
+                    record.Ticks = values.Select(p => new long[] {(long) p[0], Convert.ToInt64(((decimal) p[1]) * 100)});
+                    // record.Ticks = values.Select(p => new decimal[] {(decimal) p[0], (decimal) p[1]});
                     if (tick == null)
                     {
                         Static.Ticks.Add(record);
