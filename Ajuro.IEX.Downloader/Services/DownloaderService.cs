@@ -590,6 +590,9 @@ namespace Ajuro.IEX.Downloader.Services
 
         public async Task<IEnumerable<GraphModel>> DownloadIntraday(BaseSelector selector, DateTime date)
         {
+            var eventId = Static.EventStarted(selector, KnownEndpoints.DownloadIntraday);
+            new Info(selector, "DownloadIntraday...");
+            
             if (Static.SymbolsDictionary.Count() == 0)
             {
                 return null;
@@ -723,6 +726,8 @@ namespace Ajuro.IEX.Downloader.Services
                     SaveToDb = true,
                     SaveToFile = true
                 });
+            
+            Static.EventEnded(eventId);
             return DailyGraphsSP500;
         }
 

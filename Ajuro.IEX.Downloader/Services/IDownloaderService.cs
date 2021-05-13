@@ -178,7 +178,7 @@ if(Static.IsLinux || Static.IsForcedWindows){
             LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
 }else{
             DevHelpFilesFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
-            DailySymbolHistoryFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
+            DailySymbolHistoryFolder = @"DailySymbolHistory";
             MonthlyParsedFiles = @"C:\PRO\EasyStockData\SymbolHistory";
             DailyGraphsFolder = @"C:\PRO\EasyStockData\DailyGraphs";
             LargeResultsFolder = @"C:\PRO\EasyStockData\LargeResults";
