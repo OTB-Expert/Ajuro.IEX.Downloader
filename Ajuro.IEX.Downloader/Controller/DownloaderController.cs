@@ -336,6 +336,21 @@ namespace Ajuro.Security.Controllers.v3
       var missingItems = await _downloaderService.UploadProcessedMonths(date, true);
       return Json(missingItems);
     }
+
+    [HttpGet("preview/create")]
+    public async Task<IActionResult> CreateIntervalPreviews()
+    {
+      var missingItems = await _downloaderService.CreateIntervalPreviews();
+      return Json(missingItems);
+    }
+
+    [HttpGet("preview/{ids}/interval/{intervalType}/preview")]
+    public async Task<IActionResult> CreateIntervalPreviews(string ids, Static.LastIntervalType intervalType)
+    {
+      var symbolIds = Static.SplitStringIntoInts(ids);
+      var tick = _downloaderService.GetIntervalPreview(new BaseSelector(), symbolIds, intervalType).ToList();
+      return Json(tick);
+    }
     
     [HttpPost("reporting/intraday")]
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]

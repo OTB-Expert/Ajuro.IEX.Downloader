@@ -2886,7 +2886,180 @@ namespace Ajuro.IEX.Downloader.Services
         }
 
         #endregion REPORTING
+        
+        #region INTERVAL PREVIEW
 
+        public IQueryable<Tick> GetIntervalPreview(BaseSelector selector, int[] symbolIds, Static.LastIntervalType intervalType)
+        {
+            var interval = 0;
+            switch (intervalType)
+            {
+                case Static.LastIntervalType.Year:
+                    interval = Static.IntervalTypeYear_Interval;
+                    break;
+                case Static.LastIntervalType.Month:
+                    interval = Static.IntervalTypeMonth_Interval;
+                    break;
+                case Static.LastIntervalType.Week:
+                    interval = Static.IntervalTypeWeek_Interval;
+                    break;
+            }
+            var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(symbolIds, interval);
+            return existentTicks;
+        }
+
+        public async Task<IEnumerable<string>> CreateIntervalPreviews()
+        {
+            var symbolsCount = Static.SymbolIDs.Count();
+            int symbolPos = 0;
+            foreach (var symbolId in Static.SymbolIDs)
+            {
+                symbolPos++;
+                
+                var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(new int[]{ symbolId }, Static.IntervalTypeYear_Interval);
+                if (existentTicks.Any())
+                {
+                    continue;
+                }
+
+                var monthlyTicks = _tickRepository.GetAllMonthlyBySymbolId(symbolId).OrderBy(p=>p.Date).ToList();
+
+                List<TickArray> inputTicks = new List<TickArray>();
+                foreach (var tick in monthlyTicks)
+                {   //   "[[157795740,328.53],[157795752,328.383],[157795758,328.818],[157795764,329.145],[157795770,329.005],[157795776,328.8],[157795782,328.219],[157795788,327.886],[157795794,328.199],[157795800,328.592],[157795812,329.24],[157795818,329.632],[157795824,329.869],[157795830,329.824],[157795836,329.891],[157795866,330.181],[157795872,330.524],[157795878,330.608],[157795884,331.092],[157795890,331.133],[157795896,330.899],[157795902,330.995],[157795908,331.054],[157795914,331.07],[157795920,331.053],[157"
+                    var tickMonth = (IEnumerable<TickArray>)JsonConvert.DeserializeObject<IEnumerable<TickArray>>(tick.Serialized);
+                    inputTicks.AddRange(tickMonth);
+                }
+
+                new Info(new BaseSelector(), $"BuildLastInterval... [{ symbolPos }/{ symbolsCount }] for symbolId:{ symbolId } at every:{ Static.IntervalTypeYear_Interval } seconds.");
+                await BuildLastInterval(symbolId, inputTicks, Static.LastIntervalType.Year);
+
+                new Info(new BaseSelector(), $"BuildLastInterval... [{ symbolPos }/{ symbolsCount }] for symbolId:{ symbolId } at every:{ Static.IntervalTypeMonth_Interval } seconds.");
+                await BuildLastInterval(symbolId, inputTicks, Static.LastIntervalType.Month);
+            }
+
+            return null;
+        }
+
+        private async Task BuildLastInterval(int symbolId, List<TickArray> inputTicks, Static.LastIntervalType intervalType)
+        {
+            try
+            {
+                var interval = 0;
+                switch (intervalType)
+                {
+                    case Static.LastIntervalType.Year:
+                        interval = Static.IntervalTypeYear_Interval;
+                        break;
+                    case Static.LastIntervalType.Month:
+                        interval = Static.IntervalTypeMonth_Interval;
+                        break;
+                    case Static.LastIntervalType.Week:
+                        interval = Static.IntervalTypeWeek_Interval;
+                        break;
+                }
+                var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(new int[]{ symbolId }, interval);
+                if (existentTicks.Any())
+                {
+                    return;
+                }
+                
+                List<TickArray> outputTicks = new List<TickArray>();
+                var oneYearAgoDate = DateTime.Today;
+
+                switch (intervalType)
+                {
+                    case Static.LastIntervalType.Year:
+                        oneYearAgoDate = DateTime.Today.AddYears(-1);
+                        break;
+                    case Static.LastIntervalType.Month:
+                        oneYearAgoDate = DateTime.Today.AddMonths(-1);
+                        break;
+                    case Static.LastIntervalType.Week:
+                        oneYearAgoDate = DateTime.Today.AddDays(-1);
+                        break;
+                }
+
+                var oneYearAgoSeconds = Static.SecondsFromDateTime(oneYearAgoDate);
+                var yesterdayDate = DateTime.Today.AddDays(0);
+                var yesterdaySeconds = Static.SecondsFromDateTime(yesterdayDate);
+                var timeFrameTicks = inputTicks
+                    .Where(tick => tick.T >= oneYearAgoSeconds / 10 && tick.T < yesterdaySeconds / 10).ToList();
+
+                var startingAt = oneYearAgoSeconds / 10;
+                var nextAt = oneYearAgoSeconds / 10;
+                var endingAt = yesterdaySeconds / 10;
+
+                var intervalForAllYear = interval / 10; // Seconds in a hour / 10
+
+                int tickPos = 0;
+                int intervalsCount = (int) (endingAt - startingAt) / intervalForAllYear;
+                while (startingAt < endingAt)
+                {
+                    tickPos++;
+                    if (tickPos % 1000 == 0)
+                    {
+                        new Info(new BaseSelector(),
+                            $"BuildLastInterval s [{tickPos}/{intervalsCount}] for symbolId:{symbolId} at every:{intervalType} seconds.");
+                    }
+
+                    nextAt = startingAt + intervalForAllYear;
+                    // var dayOffset = ((startingAt % 8640) / 60) % 1;
+                    // if (dayOffset > 10 && dayOffset < 100)
+                    {
+                        // 1621209600 = 17 May 2021
+                        // 1621296000 = 18 May 2021
+                        // => 86400 seconds in a day
+                        var intervalTicks =
+                            timeFrameTicks.Where(tick => tick.T >= startingAt && tick.T < nextAt).ToList();
+                        if (intervalTicks.Any())
+                        {
+                            outputTicks.Add(new TickArray()
+                            {
+                                T = startingAt,
+                                V = intervalTicks.Sum(p => p.V) / intervalTicks.Count()
+                            });
+                        }
+                    }
+
+                    startingAt = nextAt;
+                }
+
+                var serialized = JsonConvert.SerializeObject(outputTicks);
+                if (existentTicks.Any())
+                {
+                    var existentTick = existentTicks.FirstOrDefault();
+                    existentTick.Updated = Static.Now();
+                    existentTick.Serialized = serialized;
+                    existentTick.Samples = outputTicks.Count();
+                    existentTick.Seconds = oneYearAgoSeconds;
+                    await _tickRepository.UpdateAsync(existentTick);
+                    return;
+                }
+
+                var lastYearTick = new Tick()
+                {
+                    Created = oneYearAgoSeconds,
+                    Updated = Static.Now(),
+                    Date = oneYearAgoDate,
+                    IsMonthly = false,
+                    Serialized = serialized,
+                    Interval = interval,
+                    SymbolId = symbolId,
+                    Symbol = Static.SymbolCodeFromId[symbolId],
+                    Samples = outputTicks.Count(),
+                    Seconds = oneYearAgoSeconds,
+                    // Ticks = outputTicks,
+                };
+                await _tickRepository.AddAsync(lastYearTick);
+            }
+            catch (Exception ex)
+            {
+                new Info(new BaseSelector(), $"BuildLastInterval... exception for symbolId:{symbolId} at every:{Static.IntervalTypeMonth_Interval} seconds: {ex.Message}");
+            }
+        }
+        
+        #endregion
 
         public async Task<IEnumerable<Step1_Coverage_For_Day>> MissingIntradaysForMonth(DateTime date,
             bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null)
