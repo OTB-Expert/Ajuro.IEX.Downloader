@@ -2889,26 +2889,29 @@ namespace Ajuro.IEX.Downloader.Services
         
         #region INTERVAL PREVIEW
 
-        public IQueryable<Tick> GetIntervalPreview(BaseSelector selector, int[] symbolIds, Static.LastIntervalType intervalType)
+        public IQueryable<Tick> GetIntervalPreview(BaseSelector selector, int[] symbolIds, Static.LastIntervalType interval)
         {
-            var interval = 0;
-            switch (intervalType)
+            var seconds = 0;
+            switch (interval)
             {
                 case Static.LastIntervalType.Year:
-                    interval = Static.IntervalTypeYear_Interval;
+                    seconds = Static.IntervalTypeYear_Interval;
                     break;
                 case Static.LastIntervalType.Month:
-                    interval = Static.IntervalTypeMonth_Interval;
+                    seconds = Static.IntervalTypeMonth_Interval;
                     break;
                 case Static.LastIntervalType.Week:
-                    interval = Static.IntervalTypeWeek_Interval;
+                    seconds = Static.IntervalTypeWeek_Interval;
+                    break;
+                case Static.LastIntervalType.Day:
+                    seconds = Static.IntervalTypeDay_Interval;
                     break;
             }
             var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(symbolIds, interval);
             return existentTicks;
         }
 
-        public async Task<IEnumerable<string>> CreateIntervalPreviews()
+        public async Task<IEnumerable<string>> CreateIntervalPreviews(Static.LastIntervalType interval)
         {
             var symbolsCount = Static.SymbolIDs.Count();
             int symbolPos = 0;
@@ -2916,15 +2919,51 @@ namespace Ajuro.IEX.Downloader.Services
             {
                 symbolPos++;
                 
-                var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(new int[]{ symbolId }, Static.IntervalTypeYear_Interval);
+                var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(new int[]{ symbolId }, interval);
                 if (existentTicks.Any())
                 {
                     continue;
                 }
 
+                List<TickArray> inputTicks = new List<TickArray>();
+                if (interval == 0)
+                {
+                    inputTicks = Static.SymbolsDictionary[symbolId].TicksCache;
+                    var serialized = JsonConvert.SerializeObject(inputTicks);
+                    
+                    var existentTick = existentTicks.FirstOrDefault();
+                    if (existentTick != null)
+                    {
+                        existentTick.Updated = Static.Now();
+                        existentTick.Serialized = serialized;
+                        existentTick.Samples = inputTicks.Count();
+                        existentTick.Seconds = Static.SecondsFromDateTime(DateTime.Today.Date);
+                        await _tickRepository.UpdateAsync(existentTick);
+                    }
+                    else
+                    {
+                        var lastYearTick = new Tick()
+                        {
+                            Created = Static.SecondsFromDateTime(DateTime.Today.Date),
+                            Updated = Static.Now(),
+                            Date = DateTime.Today.Date,
+                            IsMonthly = false,
+                            Serialized = serialized,
+                            Interval = Static.IntervalTypeDay_Interval,
+                            SymbolId = symbolId,
+                            Symbol = Static.SymbolCodeFromId[symbolId],
+                            Samples = inputTicks.Count(),
+                            Seconds = Static.SecondsFromDateTime(DateTime.Today.Date),
+                            // Ticks = outputTicks,
+                        };
+                        await _tickRepository.AddAsync(lastYearTick);
+                    }
+
+                    continue;
+                }
+
                 var monthlyTicks = _tickRepository.GetAllMonthlyBySymbolId(symbolId).OrderBy(p=>p.Date).ToList();
 
-                List<TickArray> inputTicks = new List<TickArray>();
                 foreach (var tick in monthlyTicks)
                 {   //   "[[157795740,328.53],[157795752,328.383],[157795758,328.818],[157795764,329.145],[157795770,329.005],[157795776,328.8],[157795782,328.219],[157795788,327.886],[157795794,328.199],[157795800,328.592],[157795812,329.24],[157795818,329.632],[157795824,329.869],[157795830,329.824],[157795836,329.891],[157795866,330.181],[157795872,330.524],[157795878,330.608],[157795884,331.092],[157795890,331.133],[157795896,330.899],[157795902,330.995],[157795908,331.054],[157795914,331.07],[157795920,331.053],[157"
                     var tickMonth = (IEnumerable<TickArray>)JsonConvert.DeserializeObject<IEnumerable<TickArray>>(tick.Serialized);
@@ -2941,21 +2980,28 @@ namespace Ajuro.IEX.Downloader.Services
             return null;
         }
 
-        private async Task BuildLastInterval(int symbolId, List<TickArray> inputTicks, Static.LastIntervalType intervalType)
+        private async Task BuildLastInterval(int symbolId, List<TickArray> inputTicks, Static.LastIntervalType interval)
         {
+            if (interval == Static.LastIntervalType.Day)
+            {
+                return; // Intra-day ticks of the current day will be saved as they are.
+            }
             try
             {
-                var interval = 0;
-                switch (intervalType)
+                var seconds = 0;
+                switch (interval)
                 {
                     case Static.LastIntervalType.Year:
-                        interval = Static.IntervalTypeYear_Interval;
+                        seconds = Static.IntervalTypeYear_Interval;
                         break;
                     case Static.LastIntervalType.Month:
-                        interval = Static.IntervalTypeMonth_Interval;
+                        seconds = Static.IntervalTypeMonth_Interval;
                         break;
                     case Static.LastIntervalType.Week:
-                        interval = Static.IntervalTypeWeek_Interval;
+                        seconds = Static.IntervalTypeWeek_Interval;
+                        break;
+                    case Static.LastIntervalType.Day:
+                        seconds = Static.IntervalTypeDay_Interval;
                         break;
                 }
                 var existentTicks = _tickRepository.TicksBySymbolIdAndByInterval(new int[]{ symbolId }, interval);
@@ -2967,7 +3013,7 @@ namespace Ajuro.IEX.Downloader.Services
                 List<TickArray> outputTicks = new List<TickArray>();
                 var oneYearAgoDate = DateTime.Today;
 
-                switch (intervalType)
+                switch (interval)
                 {
                     case Static.LastIntervalType.Year:
                         oneYearAgoDate = DateTime.Today.AddYears(-1);
@@ -2977,6 +3023,9 @@ namespace Ajuro.IEX.Downloader.Services
                         break;
                     case Static.LastIntervalType.Week:
                         oneYearAgoDate = DateTime.Today.AddDays(-1);
+                        break;
+                    case Static.LastIntervalType.Day:
+                        oneYearAgoDate = DateTime.Today.Date;
                         break;
                 }
 
@@ -2990,7 +3039,7 @@ namespace Ajuro.IEX.Downloader.Services
                 var nextAt = oneYearAgoSeconds / 10;
                 var endingAt = yesterdaySeconds / 10;
 
-                var intervalForAllYear = interval / 10; // Seconds in a hour / 10
+                var intervalForAllYear = seconds / 10; // Seconds in a hour / 10
 
                 int tickPos = 0;
                 int intervalsCount = (int) (endingAt - startingAt) / intervalForAllYear;
@@ -3000,7 +3049,7 @@ namespace Ajuro.IEX.Downloader.Services
                     if (tickPos % 1000 == 0)
                     {
                         new Info(new BaseSelector(),
-                            $"BuildLastInterval s [{tickPos}/{intervalsCount}] for symbolId:{symbolId} at every:{intervalType} seconds.");
+                            $"BuildLastInterval s [{tickPos}/{intervalsCount}] for symbolId:{symbolId} at every:{seconds} seconds.");
                     }
 
                     nextAt = startingAt + intervalForAllYear;
@@ -3044,7 +3093,7 @@ namespace Ajuro.IEX.Downloader.Services
                     Date = oneYearAgoDate,
                     IsMonthly = false,
                     Serialized = serialized,
-                    Interval = interval,
+                    Interval = seconds,
                     SymbolId = symbolId,
                     Symbol = Static.SymbolCodeFromId[symbolId],
                     Samples = outputTicks.Count(),

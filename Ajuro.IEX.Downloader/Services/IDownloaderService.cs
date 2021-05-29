@@ -101,7 +101,7 @@ namespace Ajuro.IEX.Downloader.Services
         Task<IEnumerable<Step2_Coverage_For_Code>> MissingProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step2_Coverage_For_Code> knownItems = null);
 
         Task<IEnumerable<Step1_Coverage_For_Day>> UploadProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
-        Task<IEnumerable<string>> CreateIntervalPreviews();
+        Task<IEnumerable<string>> CreateIntervalPreviews(Static.LastIntervalType interval);
         IQueryable<Tick> GetIntervalPreview(BaseSelector selector, int[] symbolId, Static.LastIntervalType intervalType);
     }
 

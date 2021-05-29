@@ -337,10 +337,32 @@ namespace Ajuro.Security.Controllers.v3
       return Json(missingItems);
     }
 
-    [HttpGet("preview/create")]
-    public async Task<IActionResult> CreateIntervalPreviews()
+    [HttpGet("create/year/interval")]
+    public async Task<IActionResult> CreateYearInterval()
     {
-      var missingItems = await _downloaderService.CreateIntervalPreviews();
+      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Year);
+      return Json(missingItems);
+    }
+
+    [HttpGet("create/month/interval")]
+    public async Task<IActionResult> CreateMonthInterval()
+    {
+      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Month);
+      return Json(missingItems);
+    }
+
+    [HttpGet("create/week/interval")]
+    public async Task<IActionResult> CreateWeekInterval()
+    {
+      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Week);
+      return Json(missingItems);
+    }
+
+    [HttpGet("create/day/interval")]
+    public async Task<IActionResult> CreateDayInterval()
+    {
+      // same as  admin/{env}/{token}/create_missing_intervals/{seconds}
+      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Day);
       return Json(missingItems);
     }
 
