@@ -1048,7 +1048,7 @@ namespace Ajuro.IEX.Downloader.Services
 #endif
                     Updated = DateTime.UtcNow,
                     Alerts = alerts.Count(),
-                    Last = (decimal) ticksArray.LastOrDefault()[1]
+                    Last = (double) ticksArray.LastOrDefault()[1]
                 };
                 /*}
                 else
