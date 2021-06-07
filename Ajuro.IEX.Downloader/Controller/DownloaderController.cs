@@ -370,7 +370,7 @@ namespace Ajuro.Security.Controllers.v3
     public async Task<IActionResult> CreateIntervalPreviews(string ids, Static.LastIntervalType intervalType)
     {
       var symbolIds = Static.SplitStringIntoInts(ids);
-      var tick = _downloaderService.GetIntervalPreview(new BaseSelector(), symbolIds, intervalType).ToList();
+      var tick = _downloaderService.GetIntervalPreview(new BaseSelector(), intervalType, symbolIds).ToList();
       return Json(tick);
     }
     

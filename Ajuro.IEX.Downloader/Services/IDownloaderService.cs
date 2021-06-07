@@ -102,7 +102,7 @@ namespace Ajuro.IEX.Downloader.Services
 
         Task<IEnumerable<Step1_Coverage_For_Day>> UploadProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
         Task<IEnumerable<string>> CreateIntervalPreviews(Static.LastIntervalType interval);
-        IQueryable<Tick> GetIntervalPreview(BaseSelector selector, int[] symbolId, Static.LastIntervalType intervalType);
+        IQueryable<Tick> GetIntervalPreview(BaseSelector selector, Static.LastIntervalType intervalType, int[] symbolId = null);
     }
 
     public class DownloadOptions
