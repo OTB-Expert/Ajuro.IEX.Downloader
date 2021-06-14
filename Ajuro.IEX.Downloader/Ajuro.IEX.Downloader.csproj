@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <Compile Remove="Controller\**" />
+    <Compile Include="Controller\IntervalsController.cs" />
     <EmbeddedResource Remove="Controller\**" />
     <None Remove="Controller\**" />
   </ItemGroup>

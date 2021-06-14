@@ -336,43 +336,6 @@ namespace Ajuro.Security.Controllers.v3
       var missingItems = await _downloaderService.UploadProcessedMonths(date, true);
       return Json(missingItems);
     }
-
-    [HttpGet("create/year/interval")]
-    public async Task<IActionResult> CreateYearInterval()
-    {
-      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Year);
-      return Json(missingItems);
-    }
-
-    [HttpGet("create/month/interval")]
-    public async Task<IActionResult> CreateMonthInterval()
-    {
-      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Month);
-      return Json(missingItems);
-    }
-
-    [HttpGet("create/week/interval")]
-    public async Task<IActionResult> CreateWeekInterval()
-    {
-      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Week);
-      return Json(missingItems);
-    }
-
-    [HttpGet("create/day/interval")]
-    public async Task<IActionResult> CreateDayInterval()
-    {
-      // same as  admin/{env}/{token}/create_missing_intervals/{seconds}
-      var missingItems = await _downloaderService.CreateIntervalPreviews(Static.LastIntervalType.Day);
-      return Json(missingItems);
-    }
-
-    [HttpGet("preview/{ids}/interval/{intervalType}/preview")]
-    public async Task<IActionResult> CreateIntervalPreviews(string ids, Static.LastIntervalType intervalType)
-    {
-      var symbolIds = Static.SplitStringIntoInts(ids);
-      var tick = _downloaderService.GetIntervalPreview(new BaseSelector(), intervalType, symbolIds).ToList();
-      return Json(tick);
-    }
     
     [HttpPost("reporting/intraday")]
     // [EnsurePermission(Permissions.Controller.BaseViewKey)]
