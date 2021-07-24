@@ -54,6 +54,17 @@ namespace Ajuro.Security.Controllers.v3
       _resultRepository = resultRepository;
     }
 
+    [HttpGet("collect/{ids}/last_month")]
+    public async Task<IActionResult> CollectMissingMonths(string ids, Static.LastIntervalType intervalType)
+    {
+      return await CreateIntervalPreviews(ids, Static.LastIntervalType.Month);
+    }
+
+    [HttpGet("collect/{ids}/last_year")]
+    public async Task<IActionResult> CollectMissingYears(string ids, Static.LastIntervalType intervalType)
+    {
+      return await CreateIntervalPreviews(ids, Static.LastIntervalType.Year);
+    }
     
 
     [HttpGet("preview/{ids}/interval/{intervalType}/preview")]
