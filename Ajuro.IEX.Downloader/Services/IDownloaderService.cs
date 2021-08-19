@@ -101,6 +101,7 @@ namespace Ajuro.IEX.Downloader.Services
         Task<IEnumerable<Step2_Coverage_For_Code>> MissingProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step2_Coverage_For_Code> knownItems = null);
 
         Task<IEnumerable<Step1_Coverage_For_Day>> UploadProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
+        Task<object> Download(BaseSelector selector);
     }
 
     public class DownloadOptions

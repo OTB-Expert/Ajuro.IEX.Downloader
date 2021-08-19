@@ -94,6 +94,15 @@ namespace Ajuro.Security.Controllers.v3
 
     #endregion
 
+    [HttpGet("api/[controller]/{symbolId}/download")]
+    public async Task<JsonResult> Download(int symbolId)
+    {
+      var selector = new BaseSelector(CommandSource.Endpoint);
+      var result = await _downloaderService.Download(selector);
+
+      return Json(result);
+    }
+
     [HttpGet("api/[controller]/{symbolId}/collect")]
     public async Task<JsonResult> GetSymbol(int symbolId)
     {
@@ -109,15 +118,16 @@ namespace Ajuro.Security.Controllers.v3
       return Json(null);
     }
 
-    [HttpPost("download")]
-    public async Task<IActionResult> Download(DownloadOptions options)
+    [HttpGet("download")]
+    public async Task<IActionResult> Download()
     {
       var selector = new BaseSelector(CommandSource.Endpoint);
-      // var reports = await _downloaderService.Download(selector, options);
+      var reports = await _downloaderService.Download(selector);
       return null; // Content(JsonConvert.SerializeObject(reports), "application/json");
     }
 
     private ProcessType[] IsMonthly = new ProcessType[] {ProcessType.RF_MONTHLY_SUMMARIES, ProcessType.RF_UPLOAD_MONTHLY};
+
 
     [HttpGet(
       "code/{code}/from/{fromDate}/take/{take}/source/{source}/replaceDestination/{replaceDestinationIfExists}/backward/{isBackward}/on/allForMonth/processType/{processType}")]

@@ -4,7 +4,7 @@
     <TargetFramework>net5.0</TargetFramework>
     <Authors>dev@otb.expert</Authors>
     <Company>OTB Expert</Company>
-    <Description>Collect, process and store intraday data from IEX Cloud.</Description>
+    <Descri_ption>Collect, process and store intraday data from IEX Cloud.</Descri_ption>
     <Copyright>Copyright 2020</Copyright>
     <PackageTags>Ajuro, IEX, Intraday, Downloader</PackageTags>
     <RepositoryUrl>https://github.com/OTB-Expert/Ajuro.IEX.Downloader.git</RepositoryUrl>
