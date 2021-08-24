@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.IO;
 using Ajuro.IEX.Downloader.Services;
 using Newtonsoft.Json;
 using Ajuro.IEX.Downloader.Models;
@@ -73,6 +74,30 @@ namespace Ajuro.Security.Controllers.v3
       var symbolIds = Static.SplitStringIntoInts(ids);
       var tick = _intervalService.GetIntervalPreview(new BaseSelector(), intervalType, symbolIds).ToList();
       return Json(tick);
+    }
+    
+
+    [HttpGet("move/{date}")]
+    public async Task<IActionResult> Move(string date)
+    {
+      var destDir = $"/home/florin/PRO/Data/Historical/{date}/IEX";
+      if (!Directory.Exists(destDir))
+      {
+        Directory.CreateDirectory(destDir);
+      }
+      
+      // var files = Directory.GetFiles("/home/florin/PRO/Data/Historical/DailySymbolHistory/", $"Intraday_*_{date}*.json");
+      var files = Directory.GetFiles("/media/florin/OTB/PRO/Data/Historical/DailySymbolHistory/", $"Intraday_*_{date}*.json");
+      // var files = Directory.GetFiles("/media/florin/25613752-0e97-4104-87cf-2aaee599c1c21/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory/", $"Intraday_*_{date}*.json");
+      foreach (var filePath in files)
+      {
+        var fileName = filePath.Substring(filePath.LastIndexOf("/") + 1);
+        if (!System.IO.File.Exists($"{destDir}/{fileName}"))
+        {
+          System.IO.File.Copy(filePath, destDir + "/" + fileName);
+        }
+      }
+      return Json(files.Length);
     }
 
     [HttpGet("create/year/interval")]

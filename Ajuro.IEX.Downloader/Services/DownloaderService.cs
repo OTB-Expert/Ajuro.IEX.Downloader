@@ -66,7 +66,7 @@ namespace Ajuro.IEX.Downloader.Services
                     foreach (var code in Static.SP500)
                     {
                         if (code == "DEMO") continue;
-                        var path = $"/media/florin/OTB/PRO/Data/Historical/DailySymbolHistory/Intraday_{code}_{Static.IntradayFileTimestampFromDate(date)}.json";
+                        var path = $"/media/florin/OTB/PRO/Data/Historical/DailySymbolHistory/Intraday_{code}_{Static.DateFileTimestampFromDate(date)}.json";
                         if (!File.Exists(path))
                         {
                             var url = "https://cloud.iexapis.com/stable/stock/" + code + "/chart/date/" + date.ToString("yyyyMMdd") + "?token=" + downloaderOptions.IEX_Token;
