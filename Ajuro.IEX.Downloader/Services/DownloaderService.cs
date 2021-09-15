@@ -56,6 +56,64 @@ namespace Ajuro.IEX.Downloader.Services
             _logRepository = logRepository;
         }
 
+        public async Task<object> Download(BaseSelector selector)
+        {
+            var date = DateTime.Now.Date.AddDays(-20);
+            while (date < DateTime.Now.Date)
+            {
+                if (Static.IsOpenDay(date))
+                {
+                    foreach (var code in Static.SP500)
+                    {
+                        if (code == "DEMO") continue;
+                        var path = $"/media/florin/OTB/PRO/Data/Historical/DailySymbolHistory/Intraday_{code}_{Static.DateFileTimestampFromDate(date)}.json";
+                        if (!File.Exists(path))
+                        {
+                            var url = "https://cloud.iexapis.com/stable/stock/" + code + "/chart/date/" + date.ToString("yyyyMMdd") + "?token=" + downloaderOptions.IEX_Token;
+                            var content = await Static.GetJsonStream(url);
+                            if (!string.IsNullOrEmpty(content))
+                            {
+                                new Info(selector, url + " " + content.Length);
+                                File.WriteAllText(path, content);
+                            }
+                        }
+                    }
+                }
+
+                date = date.AddDays(1);
+            }
+
+            /*
+        if ProcessFilesByCode:
+            print("ProcessFilesByCode: " + str(fromDate) + " [" + str(pos+1) + "/" + str(len(OtbRefs.SP500)) + "]")
+            downloads = OtbDownloader.ProcessFilesByCode(code, workingDays, True)
+        if AggregateMonthlyByCode:
+            print("AggregateMonthlyByCode: " + str(fromDate) + " [" + str(pos+1) + "/" + str(len(OtbRefs.SP500)) + "]")
+            downloads = OtbDownloader.AggregateMonthlyByCode(code, OtbTime.getStartOfMonth(fromDate), aggregateReplace)
+        # print(str(downloads) + " files downloaded for " + code)
+    
+    if build_monthly_charts:
+        fromDate = OtbTime.today()
+        for i in range(10):
+            aggregateReplace = False
+            print("build_monthly_charts: " + str(fromDate) + " [" + str(len(OtbRefs.SP500)) + "]")
+            downloads = OtbDownloader.AggregateMonthly_Into_Otb_Objects(OtbTime.getStartOfMonth(fromDate), aggregateReplace, 10)
+            fromDate = fromDate - timedelta(days=30)
+    
+    if Prepare_LastMonth:
+        fromDate = OtbTime.today()
+        aggregateReplace = False
+        print("Prepare_LastMonth: " + str(fromDate) + " [" + str(len(OtbRefs.SP500)) + "]")
+        downloads = OtbDownloader.Prepare_LastMonth(OtbTime.getStartOfMonth(fromDate), aggregateReplace)
+    
+    if Prepare_LastYear:
+        fromDate = OtbTime.today()
+        aggregateReplace = False
+        print("Prepare_LastYear: " + str(fromDate) + " [" + str(len(OtbRefs.SP500)) + "]")
+        downloads = OtbDownloader.Prepare_LastYear(OtbTime.getStartOfMonth(fromDate), aggregateReplace)*/
+            return null;
+        }
+
         #region PROCESSING
 
         private DownloaderOptions downloaderOptions { get; set; }

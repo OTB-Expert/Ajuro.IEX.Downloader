@@ -101,6 +101,7 @@ namespace Ajuro.IEX.Downloader.Services
         Task<IEnumerable<Step2_Coverage_For_Code>> MissingProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step2_Coverage_For_Code> knownItems = null);
 
         Task<IEnumerable<Step1_Coverage_For_Day>> UploadProcessedMonths(DateTime date, bool downloadMissing = false, IEnumerable<Step1_Coverage_For_Day> knownItems = null);
+        Task<object> Download(BaseSelector selector);
     }
 
     public class DownloadOptions
@@ -169,12 +170,12 @@ namespace Ajuro.IEX.Downloader.Services
         {
             IEX_Token = "pk_aa5cc122f48d4640b41e25e781347d74";
 if(Static.IsLinux || Static.IsForcedWindows){
-            DevHelpFilesFolder = @"/home/florin/PRO/Test3/Ajuro.Wiki/dev";
-            DailySymbolHistoryFolder = @"/home/florin/PRO/Test3/Data/Historical/DailySymbolHistory";
-            MonthlyParsedFiles = @"/home/florin/PRO/Test3/Data/Historical/MonthlyParsedFiles";
-            CountsFolder = @"/home/florin/PRO/Test3/Data/Historical/CountsHistory";
-            DailyGraphsFolder = @"/home/florin/PRO/Test3/Data/Historical/DailyGraphs";
-            LargeResultsFolder = @"/home/florin/PRO/Test3/Data/Historical/LargeResults";
+            DevHelpFilesFolder = @"/home/florin/PRO/Ajuro.Wiki/dev";
+            DailySymbolHistoryFolder = @"/home/florin/PRO/Data/Historical/DailySymbolHistory";
+            MonthlyParsedFiles = @"/home/florin/PRO/Data/Historical/MonthlyParsedFiles";
+            CountsFolder = @"/home/florin/PRO/Data/Historical/CountsHistory";
+            DailyGraphsFolder = @"/home/florin/PRO/Data/Historical/DailyGraphs";
+            LargeResultsFolder = @"/home/florin/PRO/Data/Historical/LargeResults";
 }else{
             DevHelpFilesFolder = @"C:\PRO\EasyStockData\DailySymbolHistory";
             DailySymbolHistoryFolder = @"DailySymbolHistory";
